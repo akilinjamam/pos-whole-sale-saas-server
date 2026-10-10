@@ -29,6 +29,18 @@ router.get(
   }),
 );
 router.get(
+  '/:id/activity',
+  authenticate,
+  requirePermission('invoice:read'),
+  validate({ params: idParamSchema }),
+  asyncHandler(async (req, res) => {
+    sendData(
+      res,
+      await service.invoiceActivity(requestActorOf(req), toObjectId(req.params.id as string)),
+    );
+  }),
+);
+router.get(
   '/:id',
   authenticate,
   requirePermission('invoice:read'),

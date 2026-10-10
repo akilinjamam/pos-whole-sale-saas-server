@@ -435,7 +435,14 @@ export async function listSupplierPayments(
   actor: RequestActor,
   query: ListSupplierPaymentsQuery,
 ): Promise<{ items: SupplierPaymentPayload[]; meta: PageMeta }> {
-  const filter: FilterQuery<PaymentDocDoc> = { orgId: actor.orgId, direction: 'OUT' };
+  // Refunds are money out too, but to customers and dealers: not supplier payments. Counter
+  // refunds from before the flag existed are recognised by their shift.
+  const filter: FilterQuery<PaymentDocDoc> = {
+    orgId: actor.orgId,
+    direction: 'OUT',
+    isRefund: { $ne: true },
+    posSessionId: null,
+  };
   if (query.partyId) filter.partyId = new Types.ObjectId(query.partyId);
   if (query.unallocated) filter.unallocatedMinor = { $gt: 0 };
   if (query.method) filter.method = query.method;

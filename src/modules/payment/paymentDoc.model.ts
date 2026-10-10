@@ -69,6 +69,11 @@ export interface PaymentDocDoc {
   intendedAllocations: { invoiceId: Types.ObjectId; docNo: string; amountMinor: number }[];
   collectedByUserId: Types.ObjectId | null;
   status: 'POSTED' | 'CANCELLED';
+  /**
+   * Money handed back to a customer or dealer for goods returned (Day 20 counter, Day 36
+   * wholesale) — a `PAY` like a supplier payment, but not one: the supplier screens leave it out.
+   */
+  isRefund: boolean;
   /** A bank transfer reference, a deposit slip number (Day 28). */
   reference: string | null;
   narration: string | null;
@@ -148,6 +153,7 @@ const paymentDocSchema = new Schema<PaymentDocDoc>(
     },
     collectedByUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     status: { type: String, enum: ['POSTED', 'CANCELLED'], default: 'POSTED' },
+    isRefund: { type: Boolean, default: false },
     reference: { type: String, trim: true, default: null },
     narration: { type: String, trim: true, default: null },
   },

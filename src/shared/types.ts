@@ -1077,6 +1077,8 @@ export interface SalesReturnLinePayload {
   unitPriceMinor: number;
   lineTotalMinor: number;
   condition: 'GOOD' | 'DAMAGED';
+  /** Where it went back into stock (Day 36): the shelf, or a damage location. */
+  restockLocationId: string;
 }
 
 export interface SalesReturnPayload {
@@ -1095,6 +1097,8 @@ export interface SalesReturnPayload {
   lines: SalesReturnLinePayload[];
   grandTotalMinor: number;
   creditNoteDocNo: string | null;
+  /** The credit note document, when the return raised one (Day 36). */
+  creditNoteId: string | null;
   refundDocNo: string | null;
   /** For an exchange: the sale that spent the credit, once one has. */
   replacementInvoiceId: string | null;
@@ -2006,4 +2010,264 @@ export interface PurchaseRegisterPayload {
     returnedMinor: number;
     balanceMinor: number;
   }[];
+}
+
+// ─── Credit notes and wholesale returns (Day 36) ────────────────────────────────────────
+
+export interface CreditNoteAllocationPayload {
+  invoiceId: string;
+  docNo: string;
+  amountMinor: number;
+  allocatedAt: string;
+}
+
+/** A credit on a dealer's account from goods returned — spent against their invoices. */
+export interface CreditNotePayload {
+  id: string;
+  docNo: string;
+  channel: SalesChannel;
+  partyId: string;
+  partyName?: string;
+  partyCode?: string;
+  salesReturnId: string;
+  salesReturnDocNo: string;
+  /** The invoice the goods came back from. */
+  invoiceId: string;
+  invoiceDocNo: string;
+  postedAt: string;
+  amountMinor: number;
+  allocatedMinor: number;
+  /** Still to spend against an invoice. */
+  unallocatedMinor: number;
+  allocations: CreditNoteAllocationPayload[];
+  narration: string | null;
+}
+
+/** A wholesale invoice as the return screen needs it. */
+export interface ReturnableWholesaleInvoice {
+  invoice: InvoicePayload;
+  lines: {
+    invoiceLineId: string;
+    description: string;
+    productId: string;
+    variantId: string | null;
+    uomCode: string;
+    qtyBase: number;
+    /** Base units still returnable. */
+    returnableBase: number;
+    /** Serials sold on the line and not yet back. */
+    serials: string[];
+    trackingMode: 'NONE' | 'LOT' | 'SERIAL';
+    baseUom: string;
+    lotNo: string | null;
+    /** Net value per base unit, roughly — the exact refund is prorated on the server. */
+    unitValueMinor: number;
+  }[];
+  /** Where good stock goes by default: the location it was sold from. */
+  defaultLocationId: string | null;
+  /** The org's damage locations; a damaged line must go to one. */
+  damageLocationIds: string[];
+  previousReturns: SalesReturnPayload[];
+}
+
+export interface WholesaleReturnResult {
+  salesReturn: SalesReturnPayload;
+  creditNote: CreditNotePayload | null;
+}
+
+// ─── Invoice activity (Day 36b) ─────────────────────────────────────────────────────────
+
+/** What settled an invoice, and what came back against it. */
+export interface InvoiceActivity {
+  payments: {
+    id: string;
+    docNo: string;
+    method: PaymentMethod;
+    paidAt: string;
+    /** Allocated to this invoice — a receipt may cover several. */
+    amountMinor: number;
+    /** Set when undone (a bounced cheque). */
+    reversedAt: string | null;
+    chequeNo: string | null;
+  }[];
+  creditNotes: {
+    id: string;
+    docNo: string;
+    allocatedAt: string;
+    amountMinor: number;
+    salesReturnDocNo: string;
+  }[];
+  returns: {
+    id: string;
+    docNo: string;
+    postedAt: string;
+    settlement: 'CREDIT_NOTE' | 'CASH_REFUND' | 'REPLACEMENT';
+    grandTotalMinor: number;
+    creditNoteDocNo: string | null;
+    refundDocNo: string | null;
+    qtyBase: number;
+  }[];
+}
+
+// ─── Reports (Day 37) ───────────────────────────────────────────────────────────────────
+
+/**
+ * A report's own total checked against the record underneath it. `matches` is the server's
+ * verdict; the screen shows both figures either way.
+ */
+export interface ReportTie {
+  label: string;
+  reportMinor: number;
+  ledgerMinor: number;
+  matches: boolean;
+}
+
+export interface SalesReportRow {
+  key: string;
+  label: string;
+  sublabel: string | null;
+  invoices: number;
+  qtyBase: number;
+  /** Net line value: after line and order discounts, before shipping and rounding. */
+  salesMinor: number;
+  returnsMinor: number;
+  netMinor: number;
+  /** Null without `report:profit` and `stock:viewCost`. */
+  costMinor: number | null;
+  marginMinor: number | null;
+  marginPct: number | null;
+}
+
+export interface SalesReport {
+  from: string;
+  to: string;
+  groupBy: string;
+  rows: SalesReportRow[];
+  totals: Omit<SalesReportRow, 'key' | 'label' | 'sublabel'>;
+  costHidden: boolean;
+  /** Lines with no recorded cost (sold before costing began): margin overstates them. */
+  uncostedLines: number;
+  ties: ReportTie[];
+}
+
+export interface StockValuationRow {
+  key: string;
+  productId: string;
+  sku: string;
+  name: string;
+  variantLabel: string | null;
+  locationName: string | null;
+  baseUom: string;
+  qtyOnHand: number;
+  qtyReserved: number;
+  avgCostMinor: number | null;
+  valueMinor: number | null;
+}
+
+export interface StockValuation {
+  rows: StockValuationRow[];
+  totals: { qtyOnHand: number; valueMinor: number | null; items: number };
+  costHidden: boolean;
+  ties: ReportTie[];
+}
+
+export interface DispatchRegisterRow {
+  id: string;
+  docNo: string;
+  dispatchedAt: string;
+  orderDocNo: string | null;
+  dealerName: string | null;
+  locationName: string | null;
+  qtyBase: number;
+  invoiceDocNo: string | null;
+  invoiceMinor: number | null;
+  transport: string | null;
+  status: string;
+  deliveredAt: string | null;
+}
+
+export interface DispatchRegister {
+  from: string;
+  to: string;
+  rows: DispatchRegisterRow[];
+  totals: { dispatches: number; qtyBase: number; invoiceMinor: number; delivered: number };
+  ties: ReportTie[];
+}
+
+export interface CollectionRegisterRow {
+  id: string;
+  docNo: string;
+  paidAt: string;
+  partyName: string | null;
+  method: string;
+  reference: string | null;
+  /** A cheque's state; its money counts only once cleared. */
+  chequeStatus: string | null;
+  amountMinor: number;
+  allocatedMinor: number;
+  unallocatedMinor: number;
+}
+
+export interface CollectionRegister {
+  from: string;
+  to: string;
+  rows: CollectionRegisterRow[];
+  byMethod: { method: string; count: number; amountMinor: number }[];
+  totals: { count: number; amountMinor: number; pendingChequesMinor: number };
+  ties: ReportTie[];
+}
+
+export interface ShiftSummaryRow {
+  id: string;
+  terminalCode: string;
+  locationName: string | null;
+  openedBy: string | null;
+  closedBy: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  salesCount: number;
+  grossMinor: number;
+  discountMinor: number;
+  returnsMinor: number;
+  netMinor: number;
+  expectedCashMinor: number | null;
+  countedCashMinor: number | null;
+  varianceMinor: number | null;
+  byMethod: { method: string; amountMinor: number }[];
+}
+
+export interface ShiftSummary {
+  from: string;
+  to: string;
+  rows: ShiftSummaryRow[];
+  totals: {
+    shifts: number;
+    salesCount: number;
+    netMinor: number;
+    returnsMinor: number;
+    varianceMinor: number;
+  };
+  ties: ReportTie[];
+}
+
+export interface DeadStockRow {
+  key: string;
+  productId: string;
+  sku: string;
+  name: string;
+  variantLabel: string | null;
+  locationName: string | null;
+  baseUom: string;
+  qtyOnHand: number;
+  lastSoldAt: string | null;
+  /** Null when never sold. */
+  daysSinceSale: number | null;
+  valueMinor: number | null;
+}
+
+export interface DeadStock {
+  days: number;
+  rows: DeadStockRow[];
+  totals: { items: number; qtyOnHand: number; valueMinor: number | null };
+  costHidden: boolean;
 }

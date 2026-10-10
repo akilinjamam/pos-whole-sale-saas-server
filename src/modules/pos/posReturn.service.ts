@@ -11,6 +11,7 @@ import { Invoice } from '../invoice/invoice.model.js';
 import { LedgerEntry } from '../ledger/ledgerEntry.model.js';
 import { PaymentDoc } from '../payment/paymentDoc.model.js';
 import { Product } from '../product/product.model.js';
+import { raiseCreditNote } from '../salesReturn/creditNote.service.js';
 import { SalesReturn, toSalesReturnPayload } from '../salesReturn/salesReturn.model.js';
 
 import { PosSession } from './posSession.model.js';
@@ -275,10 +276,11 @@ export async function postCounterReturn(
       });
 
       // ── The invoice remembers what came back ──
-      // Refund and exchange hand the money back (paid goes down); a credit note does not.
+      // Refund and exchange hand the money back (paid goes down, credited up). A credit note
+      // leaves the money here alone: it is a document of its own (Day 36), allocated below.
       const cashBack = input.settlement !== 'CREDIT_NOTE';
       const paidMinor = cashBack ? current.paidMinor - totalMinor : current.paidMinor;
-      const creditedMinor = (current.creditedMinor ?? 0) + totalMinor;
+      const creditedMinor = (current.creditedMinor ?? 0) + (cashBack ? totalMinor : 0);
       const balanceMinor = Math.max(0, current.grandTotalMinor - paidMinor - creditedMinor);
       const inc: Record<string, number> = {};
       const push: Record<string, { $each: string[] }> = {};
@@ -318,10 +320,25 @@ export async function postCounterReturn(
           narration: `Refund on ${docNo} for ${current.docNo}`,
         }));
       }
+      let creditNoteId: Types.ObjectId | null = null;
       if (input.settlement === 'CREDIT_NOTE') {
-        creditNoteDocNo = await nextDocNo(txn, actor.orgId, 'CN', now);
+        // Raised as a credit note document — its own ledger CREDIT, allocated by default to this
+        // sale as far as it is still owed; any rest stays open for the dealer's next invoice.
+        const cn = await raiseCreditNote(txn, actor, {
+          channel: 'COUNTER',
+          partyId: current.partyId!,
+          salesReturnId: returnId,
+          salesReturnDocNo: docNo,
+          invoiceId: current._id,
+          invoiceDocNo: current.docNo!,
+          amountMinor: totalMinor,
+          at: now,
+          narration: `Counter return ${docNo} against ${current.docNo}`,
+        });
+        creditNoteDocNo = cn.docNo;
+        creditNoteId = cn._id;
       }
-      if (onAccount && current.partyId) {
+      if (onAccount && current.partyId && input.settlement !== 'CREDIT_NOTE') {
         // The account is credited with the goods; a cash refund then pays that credit out.
         await postLedgerEntries(txn, {
           orgId: actor.orgId,
@@ -333,7 +350,7 @@ export async function postCounterReturn(
               docType: 'CREDIT_NOTE',
               refType: 'SALES_RETURN',
               refId: returnId,
-              refDocNo: creditNoteDocNo ?? docNo,
+              refDocNo: docNo,
               creditMinor: totalMinor,
               narration: `Counter return ${docNo} against ${current.docNo}`,
             },
@@ -376,6 +393,7 @@ export async function postCounterReturn(
             grandTotalMinor: totalMinor,
             settlement: input.settlement,
             creditNoteDocNo,
+            creditNoteId,
             refundPaymentId,
             refundDocNo,
             clientRef: input.clientRef,
@@ -439,6 +457,7 @@ async function postRefund(
         amountMinor: args.amountMinor,
         allocatedMinor: 0,
         unallocatedMinor: 0,
+        isRefund: true,
         collectedByUserId: actor.actorId,
         narration: args.narration,
         createdBy: actor.actorId,

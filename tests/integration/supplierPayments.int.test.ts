@@ -195,9 +195,14 @@ describe('THE DONE-WHEN: a payment settles GRN payables', () => {
   });
 
   it('payments stay out of the dealer receipts list, and list by themselves', async () => {
-    const receipts = await listReceipts(actor, { page: 1, limit: 50 });
+    const receipts = await listReceipts(actor, { page: 1, limit: 50, order: 'desc' });
     expect(receipts.items.some((p) => p.partyId === supplierId)).toBe(false);
-    const pays = await listSupplierPayments(actor, { page: 1, limit: 50, partyId: supplierId });
+    const pays = await listSupplierPayments(actor, {
+      page: 1,
+      limit: 50,
+      order: 'desc',
+      partyId: supplierId,
+    });
     expect(pays.items).toHaveLength(2);
   });
 });
@@ -255,10 +260,9 @@ describe('THE DONE-WHEN: the supplier statement balances', () => {
   });
 
   it('the purchase register ties to the ledger', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    // `to` left to the server: today in the org's zone, not UTC's (a day behind before 6 a.m.).
     const reg = await purchaseRegister(actor, {
       from: '2026-01-01',
-      to: today,
       supplierPartyId: supplierId,
     });
     expect(reg.rows.map((r) => [r.kind, r.totalMinor])).toEqual([

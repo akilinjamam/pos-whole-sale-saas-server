@@ -52,6 +52,7 @@ export interface SalesReturnDoc {
   grandTotalMinor: number;
   settlement: ReturnSettlement;
   creditNoteDocNo: string | null;
+  creditNoteId: Types.ObjectId | null;
   refundPaymentId: Types.ObjectId | null;
   refundDocNo: string | null;
   /** An exchange's credit, once a sale has spent it — set by that sale's transaction. */
@@ -105,6 +106,7 @@ const salesReturnSchema = new Schema<SalesReturnDoc>(
     grandTotalMinor: { type: Number, required: true, min: 0 },
     settlement: { type: String, enum: RETURN_SETTLEMENTS, required: true },
     creditNoteDocNo: { type: String, default: null },
+    creditNoteId: { type: Schema.Types.ObjectId, ref: 'CreditNote', default: null },
     refundPaymentId: { type: Schema.Types.ObjectId, ref: 'PaymentDoc', default: null },
     refundDocNo: { type: String, default: null },
     replacementInvoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', default: null },
@@ -131,6 +133,8 @@ salesReturnSchema.index(
     name: 'sales_return_client_ref_unique',
   },
 );
+// The returns list, newest first, per channel.
+salesReturnSchema.index({ orgId: 1, channel: 1, postedAt: -1 });
 // An invoice's returns — the returns screen shows what already came back.
 salesReturnSchema.index({ orgId: 1, invoiceId: 1 });
 // The shift's returns — the Z-report.
@@ -168,9 +172,11 @@ export function toSalesReturnPayload(doc: SalesReturnDoc): SalesReturnPayload {
       unitPriceMinor: l.unitPriceMinor,
       lineTotalMinor: l.lineTotalMinor,
       condition: l.condition,
+      restockLocationId: String(l.restockLocationId),
     })),
     grandTotalMinor: doc.grandTotalMinor,
     creditNoteDocNo: doc.creditNoteDocNo,
+    creditNoteId: doc.creditNoteId ? String(doc.creditNoteId) : null,
     refundDocNo: doc.refundDocNo,
     replacementInvoiceId: doc.replacementInvoiceId ? String(doc.replacementInvoiceId) : null,
     replacementDocNo: doc.replacementDocNo,

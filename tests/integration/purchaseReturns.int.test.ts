@@ -336,10 +336,19 @@ describe('a direct return', () => {
   });
 
   it('the list, newest first, hides costs from the store keeper', async () => {
-    const { items } = await listPurchaseReturns(storekeeper, { page: 1, limit: 10 });
+    const { items } = await listPurchaseReturns(storekeeper, {
+      page: 1,
+      limit: 10,
+      order: 'desc',
+    });
     expect(items).toHaveLength(2);
     expect(items.every((r) => r.totalMinor === null)).toBe(true);
-    const mine = await listPurchaseReturns(manager, { page: 1, limit: 10, grnId: grn.id });
+    const mine = await listPurchaseReturns(manager, {
+      page: 1,
+      limit: 10,
+      order: 'desc',
+      grnId: grn.id,
+    });
     expect(mine.items.map((r) => r.grnDocNo)).toEqual([grn.docNo]);
   });
 });
