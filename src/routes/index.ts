@@ -9,6 +9,7 @@ import dispatchRouter from '../modules/dispatch/dispatch.route.js';
 import goodsReceiptRouter from '../modules/goodsReceipt/goodsReceipt.route.js';
 import purchaseReturnRouter from '../modules/purchaseReturn/purchaseReturn.route.js';
 import reportsRouter from '../modules/reports/reports.route.js';
+import dashboardRouter from '../modules/dashboard/dashboard.route.js';
 import {
   creditNoteRouter,
   salesReturnRouter,
@@ -141,6 +142,8 @@ export const allRoutes: RouteEntry[] = [
   { path: 'credit-notes', route: creditNoteRouter },
   // The report suite (Day 37): read-only, scoped, cost-gated, each with its ties.
   { path: 'reports', route: reportsRouter },
+  // The home dashboard (Day 38): summaries of the reports, by their own functions.
+  { path: 'dashboard', route: dashboardRouter },
 ];
 
 /** Paths that skip authentication, as full mount prefixes. */

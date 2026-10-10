@@ -10,7 +10,12 @@ import {
   postDispatch,
 } from '../../src/modules/dispatch/dispatch.service.js';
 import { Invoice } from '../../src/modules/invoice/invoice.model.js';
+import { dashboard } from '../../src/modules/dashboard/dashboard.service.js';
 import { Location } from '../../src/modules/location/location.model.js';
+import { ageingReport } from '../../src/modules/payment/ageing.service.js';
+import { Product } from '../../src/modules/product/product.model.js';
+import { reorderSuggestions } from '../../src/modules/supplierPo/reorder.service.js';
+import { orderCounts } from '../../src/modules/wholesaleOrder/wholesaleOrder.service.js';
 import { postReceipt } from '../../src/modules/payment/receipt.service.js';
 import { postPosSale } from '../../src/modules/pos/posSale.service.js';
 import { closeSession, openSession } from '../../src/modules/pos/posSession.service.js';
@@ -248,5 +253,64 @@ describe('registers and shifts', () => {
     expect(r.rows[0]).toMatchObject({ salesCount: 1, netMinor: 6_000, varianceMinor: 0 });
     expect(r.ties.every((t) => t.matches)).toBe(true);
     expect((await shiftSummary(elsewhere, {})).rows).toEqual([]);
+  });
+});
+
+describe('THE DAY 38 DONE-WHEN: every dashboard number matches its report', () => {
+  it('sales, receivables, low stock and pending dispatch — each equal to its own report', async () => {
+    await Product.updateOne(
+      { _id: f.frameId },
+      { $set: { reorderPoint: 100, reorderQty: 48 } },
+    );
+    await createOrder(actor, {
+      dealerPartyId: f.dealerId,
+      locationId: String(f.locationId),
+      lines: [{ productId: f.frameId, qty: 3 }],
+    }).then((d) => confirmOrder(actor, oid(d.id), {}));
+
+    const d = await dashboard(actor);
+    const today = d.today;
+    const todays = await sales({ groupBy: 'channel', from: today, to: today });
+    const month = await sales({ groupBy: 'channel', to: today });
+    expect(d.sales!.todayNetMinor).toBe(todays.totals.netMinor);
+    expect(d.sales!.todayNetMinor).toBe(102_000);
+    expect(d.sales!.todayWholesaleMinor + d.sales!.todayCounterMinor).toBe(
+      todays.totals.netMinor,
+    );
+    expect(d.sales!.monthNetMinor).toBe(month.totals.netMinor);
+
+    const daily = await sales({ groupBy: 'day', from: d.sales!.trend[0]!.day, to: today });
+    expect(d.sales!.trend).toHaveLength(30);
+    expect(d.sales!.trend.reduce((t, x) => t + x.wholesaleMinor + x.counterMinor, 0)).toBe(
+      daily.totals.netMinor,
+    );
+    expect(d.sales!.topDealers[0]).toMatchObject({ partyId: f.dealerId, netMinor: 96_000 });
+
+    const ageing = await ageingReport(actor, {});
+    expect(d.receivables!.totalMinor).toBe(ageing.totalMinor);
+    expect(d.receivables!.overdueMinor).toBe(ageing.totalMinor - ageing.totals.CURRENT);
+
+    const reorder = await reorderSuggestions(actor, {});
+    expect(d.lowStock!.count).toBe(reorder.length);
+    expect(d.lowStock!.items.map((i) => i.productId)).toContain(f.frameId);
+
+    const counts = await orderCounts(actor, {});
+    expect(d.dispatch!.pendingOrders).toBe(
+      counts.byStatus.CONFIRMED +
+        counts.byStatus.PICKING +
+        counts.byStatus.PACKED +
+        counts.byStatus.PARTIALLY_DISPATCHED,
+    );
+    expect(d.dispatch!.pendingOrders).toBe(1);
+  });
+
+  it('a section the caller may not see is left out, not zeroed', async () => {
+    const d = await dashboard(viewer); // reports, but no payments, purchasing or orders
+    expect(d.sales).not.toBeNull();
+    expect(d.receivables).toBeNull();
+    expect(d.lowStock).toBeNull();
+    expect(d.dispatch).toBeNull();
+    const far = await dashboard(elsewhere);
+    expect(far.sales!.todayNetMinor).toBe(0);
   });
 });

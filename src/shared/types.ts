@@ -2271,3 +2271,55 @@ export interface DeadStock {
   totals: { items: number; qtyOnHand: number; valueMinor: number | null };
   costHidden: boolean;
 }
+
+// ─── Dashboard (Day 38) ─────────────────────────────────────────────────────────────────
+
+/**
+ * The home dashboard. Each section is computed by the same function as the report it summarises
+ * — today's sales and the trend by the sales report, receivables by ageing, low stock by reorder
+ * suggestions, pending dispatch by the order board — so a number here always matches its report
+ * for the same period. A section the caller may not see is null.
+ */
+export interface DashboardPayload {
+  today: string;
+  sales: {
+    todayNetMinor: number;
+    todayWholesaleMinor: number;
+    todayCounterMinor: number;
+    todayInvoices: number;
+    /** Month to date. */
+    monthNetMinor: number;
+    /** One entry per day, oldest first, the last 30 days including today. */
+    trend: { day: string; wholesaleMinor: number; counterMinor: number }[];
+    topDealers: { partyId: string; name: string; netMinor: number; invoices: number }[];
+  } | null;
+  receivables: {
+    totalMinor: number;
+    overdueMinor: number;
+    overdueDealers: number;
+    /** The most overdue first. */
+    alerts: { partyId: string; name: string; overdueMinor: number; oldestDays: number }[];
+  } | null;
+  lowStock: {
+    count: number;
+    items: {
+      productId: string;
+      sku: string;
+      name: string;
+      positionBase: number;
+      reorderPoint: number;
+    }[];
+  } | null;
+  dispatch: {
+    /** Confirmed and not yet fully shipped: confirmed, picking, packed, part-dispatched. */
+    pendingOrders: number;
+    oldest: {
+      id: string;
+      docNo: string | null;
+      dealerName: string | null;
+      orderDate: string;
+      requiredDate: string | null;
+      status: string;
+    }[];
+  } | null;
+}

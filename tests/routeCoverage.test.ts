@@ -106,6 +106,10 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'must be able to choose their till without holding `location:read`.',
   'auth/logout': "Ends the caller's own session. A user must always be able to sign out.",
   'auth/password': "Changes the caller's own password, and re-checks the current one itself.",
+  dashboard:
+    'Every signed-in user has a home page. Each section inside is included only when the caller ' +
+    'holds the permission of the report behind it (sales → report:sales, receivables → ' +
+    'payment:read, low stock → po:read, dispatch → order:read) — a cashier gets an empty one.',
 };
 
 // ─── The test ───────────────────────────────────────────────────────────────────────────
