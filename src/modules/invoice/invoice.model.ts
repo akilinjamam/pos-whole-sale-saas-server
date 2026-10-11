@@ -216,6 +216,12 @@ invoiceSchema.index(
   { partialFilterExpression: { posSessionId: { $type: 'objectId' } } },
 );
 
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every sale.
+invoiceSchema.index({ orgId: 1, invoiceDate: -1 });
+// The sales report and the dashboard: posted invoices in a date range.
+invoiceSchema.index({ orgId: 1, status: 1, invoiceDate: 1 });
+
 export const Invoice: Model<InvoiceDoc> = model<InvoiceDoc>('Invoice', invoiceSchema);
 
 export function toInvoicePayload(doc: InvoiceDoc): InvoicePayload {

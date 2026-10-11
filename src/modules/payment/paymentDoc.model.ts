@@ -193,6 +193,10 @@ paymentDocSchema.index(
   },
 );
 
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every tender and receipt.
+paymentDocSchema.index({ orgId: 1, direction: 1, paidAt: -1 });
+
 export const PaymentDoc: Model<PaymentDocDoc> = model<PaymentDocDoc>(
   'PaymentDoc',
   paymentDocSchema,

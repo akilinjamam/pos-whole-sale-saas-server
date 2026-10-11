@@ -70,7 +70,8 @@ for (const op of [
   });
 }
 
-auditLogSchema.index({ orgId: 1, at: -1 });
+// Newest first with a tie-break, so the log pages from the index (Day 40 review).
+auditLogSchema.index({ orgId: 1, at: -1, _id: -1 });
 auditLogSchema.index({ orgId: 1, action: 1, at: -1 });
 auditLogSchema.index({ orgId: 1, entity: 1, entityId: 1, at: -1 });
 

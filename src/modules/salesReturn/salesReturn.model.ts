@@ -143,6 +143,10 @@ salesReturnSchema.index(
   { partialFilterExpression: { posSessionId: { $type: 'objectId' } } },
 );
 
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every return.
+salesReturnSchema.index({ orgId: 1, postedAt: -1, _id: -1 });
+
 export const SalesReturn: Model<SalesReturnDoc> = model<SalesReturnDoc>(
   'SalesReturn',
   salesReturnSchema,

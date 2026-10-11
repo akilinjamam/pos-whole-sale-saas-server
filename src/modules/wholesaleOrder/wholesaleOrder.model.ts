@@ -353,6 +353,11 @@ wholesaleOrderSchema.pre('insertMany', function guardInsertMany(next, docs: unkn
 });
 
 export type WholesaleOrderDocument = HydratedDocument<WholesaleOrderDoc>;
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every order.
+wholesaleOrderSchema.index({ orgId: 1, orderDate: -1 });
+wholesaleOrderSchema.index({ orgId: 1, dealerPartyId: 1, orderDate: -1 });
+
 export const WholesaleOrder: Model<WholesaleOrderDoc> = model<WholesaleOrderDoc>(
   'WholesaleOrder',
   wholesaleOrderSchema,

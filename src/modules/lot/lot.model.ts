@@ -51,4 +51,8 @@ lotSchema.index(
 lotSchema.index({ orgId: 1, expiryDate: 1 });
 
 export type LotDocument = HydratedDocument<LotDoc>;
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every lot received.
+lotSchema.index({ orgId: 1, expiryDate: 1, lotNo: 1 });
+
 export const Lot: Model<LotDoc> = model<LotDoc>('Lot', lotSchema);

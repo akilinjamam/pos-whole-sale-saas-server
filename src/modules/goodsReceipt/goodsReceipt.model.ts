@@ -156,6 +156,9 @@ goodsReceiptSchema.index({ orgId: 1, poId: 1 });
 // The supplier's payables, oldest due first — Day 35's allocation reads this.
 goodsReceiptSchema.index({ orgId: 1, supplierPartyId: 1, status: 1, dueDate: 1 });
 
+// The purchase register (Day 35): posted bills in a period.
+goodsReceiptSchema.index({ orgId: 1, status: 1, postedAt: 1 });
+
 export const GoodsReceipt: Model<GoodsReceiptDoc> = model<GoodsReceiptDoc>(
   'GoodsReceipt',
   goodsReceiptSchema,

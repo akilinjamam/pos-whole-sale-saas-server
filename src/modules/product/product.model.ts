@@ -164,6 +164,10 @@ productSchema.index({ orgId: 1, categoryId: 1 });
 export type ProductDocument = HydratedDocument<ProductDoc>;
 export type ProductModel = Model<ProductDoc>;
 
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every product.
+productSchema.index({ orgId: 1, name: 1 });
+
 export const Product: ProductModel = model<ProductDoc>('Product', productSchema);
 
 export interface ProductPayloadOptions {

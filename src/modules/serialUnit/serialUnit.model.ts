@@ -86,6 +86,10 @@ serialUnitSchema.index({ orgId: 1, locationId: 1, status: 1 });
 serialUnitSchema.index({ orgId: 1, warrantyEndAt: 1 });
 
 export type SerialUnitDocument = HydratedDocument<SerialUnitDoc>;
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every serialised unit.
+serialUnitSchema.index({ orgId: 1, lastMovementAt: -1 });
+
 export const SerialUnit: Model<SerialUnitDoc> = model<SerialUnitDoc>(
   'SerialUnit',
   serialUnitSchema,

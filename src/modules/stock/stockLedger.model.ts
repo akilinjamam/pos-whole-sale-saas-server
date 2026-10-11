@@ -148,6 +148,12 @@ stockLedgerSchema.index({ orgId: 1, refType: 1, refId: 1 });
 export type StockLedgerDocument = HydratedDocument<StockLedgerDoc>;
 export type StockLedgerModel = Model<StockLedgerDoc>;
 
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every movement.
+stockLedgerSchema.index({ orgId: 1, postedAt: -1, _id: -1 });
+stockLedgerSchema.index({ orgId: 1, productId: 1, postedAt: -1, _id: -1 });
+stockLedgerSchema.index({ orgId: 1, refDocNo: 1 });
+
 export const StockLedger: StockLedgerModel = model<StockLedgerDoc>(
   'StockLedger',
   stockLedgerSchema,

@@ -164,6 +164,12 @@ dispatchSchema.index({ orgId: 1, locationId: 1, status: 1, createdAt: -1 });
 dispatchSchema.index({ orgId: 1, dealerPartyId: 1, dispatchedAt: -1 });
 
 export type DispatchDocument = HydratedDocument<DispatchDoc>;
+// Day 40 index review: the list screen's default order, served by the index rather than sorted
+// in memory — this collection grows with every challan.
+dispatchSchema.index({ orgId: 1, createdAt: -1 });
+// The dispatch register (Day 37): what left in a period.
+dispatchSchema.index({ orgId: 1, status: 1, dispatchedAt: 1 });
+
 export const Dispatch: Model<DispatchDoc> = model<DispatchDoc>('Dispatch', dispatchSchema);
 
 export interface DispatchNames {
