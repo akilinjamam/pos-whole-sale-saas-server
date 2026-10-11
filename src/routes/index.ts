@@ -10,6 +10,7 @@ import goodsReceiptRouter from '../modules/goodsReceipt/goodsReceipt.route.js';
 import purchaseReturnRouter from '../modules/purchaseReturn/purchaseReturn.route.js';
 import reportsRouter from '../modules/reports/reports.route.js';
 import dashboardRouter from '../modules/dashboard/dashboard.route.js';
+import notificationsRouter from '../modules/notifications/notifications.route.js';
 import {
   creditNoteRouter,
   salesReturnRouter,
@@ -144,6 +145,8 @@ export const allRoutes: RouteEntry[] = [
   { path: 'reports', route: reportsRouter },
   // The home dashboard (Day 38): summaries of the reports, by their own functions.
   { path: 'dashboard', route: dashboardRouter },
+  // What needs attention now (Day 39): low stock, expiry, overdue, approvals — computed, not stored.
+  { path: 'notifications', route: notificationsRouter },
 ];
 
 /** Paths that skip authentication, as full mount prefixes. */

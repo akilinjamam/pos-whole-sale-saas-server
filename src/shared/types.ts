@@ -199,6 +199,8 @@ export interface OrgPayload {
   email: string | null;
   address: string | null;
   logoUrl: string | null;
+  invoiceHeaderNote: string | null;
+  invoiceFooter: string | null;
   currency: string;
   timeZone: string;
   fiscalYearStartMonth: number;
@@ -994,6 +996,8 @@ export interface InvoicePayload {
   postedAt: string | null;
   /** Wholesale (Day 25): the order's shipping charge and dealer-paid freight. */
   shippingMinor: number;
+  /** The org's invoice rounding (Day 39): lines + shipping + rounding = the total. */
+  roundingMinor: number;
   paymentTermsDays: number;
   orderId: string | null;
   dispatchId: string | null;
@@ -1039,6 +1043,8 @@ export interface HeldSalePayload {
 
 /** What `POST /pos/quote` returns: the cart priced exactly as the sale will price it. */
 export interface PosQuote {
+  /** The org's invoice rounding (Day 39), already in `totalMinor`. */
+  roundingMinor: number;
   lines: {
     productId: string;
     variantId: string | null;
@@ -2322,4 +2328,29 @@ export interface DashboardPayload {
       status: string;
     }[];
   } | null;
+}
+
+// ─── Notifications (Day 39) ─────────────────────────────────────────────────────────────
+
+export type NotificationKind = 'LOW_STOCK' | 'EXPIRED' | 'EXPIRING' | 'OVERDUE' | 'APPROVAL';
+
+/**
+ * Something that needs a person's attention now. Computed when asked — never stored — from the
+ * same functions as the screen it links to, so the count here is the count there.
+ */
+export interface NotificationPayload {
+  kind: NotificationKind;
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  detail: string;
+  count: number;
+  /** Where to act on it. */
+  to: string;
+}
+
+export interface NotificationsPayload {
+  items: NotificationPayload[];
+  /** How many things, across every notification — the bell's badge. */
+  total: number;
+  generatedAt: string;
 }

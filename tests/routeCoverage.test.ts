@@ -106,6 +106,10 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'must be able to choose their till without holding `location:read`.',
   'auth/logout': "Ends the caller's own session. A user must always be able to sign out.",
   'auth/password': "Changes the caller's own password, and re-checks the current one itself.",
+  notifications:
+    'Every signed-in user has a bell. Each kind is included only for those who hold the ' +
+    'permission of the screen it links to (expiry → stock:read, low stock → po:read, overdue → ' +
+    'payment:read, approvals → order:approve) — the rest get an empty list.',
   dashboard:
     'Every signed-in user has a home page. Each section inside is included only when the caller ' +
     'holds the permission of the report behind it (sales → report:sales, receivables → ' +

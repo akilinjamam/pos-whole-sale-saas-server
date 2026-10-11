@@ -21,6 +21,8 @@ export const updateOrgSchema = z
     email: z.string().trim().email().nullable().optional(),
     address: z.string().trim().max(500).nullable().optional(),
     logoUrl: z.string().trim().url().nullable().optional(),
+    invoiceHeaderNote: z.string().trim().max(200).nullable().optional(),
+    invoiceFooter: z.string().trim().max(1000).nullable().optional(),
     currency: z.string().trim().length(3).toUpperCase().optional(),
     timeZone: z.string().trim().min(1).max(60).optional(),
     fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),

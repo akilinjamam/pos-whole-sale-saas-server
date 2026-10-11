@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 
 import { invoicePortion, invoiceQuantity } from '../../domain/dispatchInvoicing.js';
+import { roundTotal } from '../../domain/pricing.js';
 import {
   lineInvariantViolation,
   lineOutstanding,
@@ -523,7 +524,7 @@ export async function postDispatch(
   input: PostDispatchInput = {},
 ): Promise<DispatchPostResult> {
   const org = await Org.findById(actor.orgId)
-    .select('settings.invoiceOnDispatch settings.enforceCreditLimit')
+    .select('settings.invoiceOnDispatch settings.enforceCreditLimit settings.roundInvoiceTo')
     .lean();
   const invoicing = org?.settings?.invoiceOnDispatch ?? true;
   const enforce = org?.settings?.enforceCreditLimit ?? true;
@@ -706,7 +707,11 @@ export async function postDispatch(
         0,
       );
       const discountMinor = invoiceLines.reduce((s, l) => s + l.discountMinor, 0);
-      const grandTotalMinor = subtotalMinor - discountMinor + shippingMinor;
+      // The org's rounding (Day 39), recorded as its own figure so the lines still add up.
+      const { totalMinor: grandTotalMinor, roundingMinor } = roundTotal(
+        subtotalMinor - discountMinor + shippingMinor,
+        org?.settings?.roundInvoiceTo ?? 0,
+      );
       const dueDate = new Date(now.getTime() + order.paymentTermsDays * 86_400_000);
 
       await Invoice.create(
@@ -737,6 +742,7 @@ export async function postDispatch(
             discountMinor,
             taxMinor: 0,
             shippingMinor,
+            roundingMinor,
             grandTotalMinor,
             paidMinor: 0,
             balanceMinor: grandTotalMinor,

@@ -1,5 +1,5 @@
 import { asyncHandler } from '../../lib/asyncHandler.js';
-import { actorIdOf, orgIdOf } from '../../lib/requestUser.js';
+import { orgIdOf, requestActorOf } from '../../lib/requestUser.js';
 import { sendData } from '../../lib/respond.js';
 
 import * as orgService from './org.service.js';
@@ -18,10 +18,10 @@ export const getCurrentOrg = asyncHandler(async (req, res) => {
 
 export const updateCurrentOrg = asyncHandler(async (req, res) => {
   const input = req.body as UpdateOrgInput;
-  sendData(res, await orgService.updateOrg(orgIdOf(req), input, actorIdOf(req)));
+  sendData(res, await orgService.updateOrg(requestActorOf(req), input));
 });
 
 export const updateCurrentOrgSettings = asyncHandler(async (req, res) => {
   const input = req.body as UpdateOrgSettingsInput;
-  sendData(res, await orgService.updateOrgSettings(orgIdOf(req), input, actorIdOf(req)));
+  sendData(res, await orgService.updateOrgSettings(requestActorOf(req), input));
 });

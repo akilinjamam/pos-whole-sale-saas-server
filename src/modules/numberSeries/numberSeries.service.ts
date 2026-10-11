@@ -1,11 +1,15 @@
 import { ApiError } from '../../lib/ApiError.js';
 import { peekDocNo, seriesConfig } from '../../lib/numbering.js';
+import { withTransaction } from '../../lib/withTransaction.js';
+import { writeAudit } from '../../services/audit.service.js';
+import { diff } from '../org/org.service.js';
 import { DOC_SERIES } from '../../shared/enums.js';
 import { LOCKED_SERIES } from '../../shared/numbering.js';
 
 import { NumberSeries } from './numberSeries.model.js';
 
 import type { UpdateSeriesInput } from './numberSeries.schema.js';
+import type { RequestActor } from '../../lib/requestUser.js';
 import type { DocSeries } from '@shared/enums.js';
 import type { NumberSeriesPayload } from '@shared/types.js';
 import type { Types } from 'mongoose';
@@ -37,11 +41,11 @@ export async function listSeries(orgId: Types.ObjectId): Promise<NumberSeriesPay
  * see the note on `NumberSeries` for why an edit can never collide with them.
  */
 export async function updateSeries(
-  orgId: Types.ObjectId,
+  actor: RequestActor,
   series: DocSeries,
   input: UpdateSeriesInput,
-  actorId: Types.ObjectId,
 ): Promise<NumberSeriesPayload> {
+  const { orgId, actorId } = actor;
   if (LOCKED_SERIES.includes(series)) {
     throw ApiError.validation('Validation failed', [
       {
@@ -52,13 +56,26 @@ export async function updateSeries(
     ]);
   }
   const current = await seriesConfig(orgId, series);
-  await NumberSeries.updateOne(
-    { orgId, series },
-    {
-      $set: { ...current, ...input, updatedBy: actorId },
-      $setOnInsert: { orgId, series, createdBy: actorId },
-    },
-    { upsert: true },
-  );
+  await withTransaction(async (session) => {
+    await NumberSeries.updateOne(
+      { orgId, series },
+      {
+        $set: { ...current, ...input, updatedBy: actorId },
+        $setOnInsert: { orgId, series, createdBy: actorId },
+      },
+      { upsert: true, session },
+    );
+    // Renumbering is a legal matter — the next invoice's number changes shape — so it is audited.
+    const changed = diff(current as unknown as Record<string, unknown>, input);
+    if (changed) {
+      await writeAudit(session, actor, {
+        action: 'NUMBER_SERIES_CHANGE',
+        entity: 'NumberSeries',
+        entityId: null,
+        docNo: series,
+        ...changed,
+      });
+    }
+  });
   return describe(orgId, series, true);
 }

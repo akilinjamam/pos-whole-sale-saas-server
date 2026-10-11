@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { asyncHandler } from '../../lib/asyncHandler.js';
-import { actorIdOf, orgIdOf } from '../../lib/requestUser.js';
+import { orgIdOf, requestActorOf } from '../../lib/requestUser.js';
 import { sendData } from '../../lib/respond.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
@@ -37,10 +37,9 @@ router.patch(
     sendData(
       res,
       await service.updateSeries(
-        orgIdOf(req),
+        requestActorOf(req),
         req.params.series as DocSeries,
         req.body as UpdateSeriesInput,
-        actorIdOf(req),
       ),
     );
   }),

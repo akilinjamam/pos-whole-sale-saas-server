@@ -95,3 +95,14 @@ describe('movingAverageOut', () => {
     );
   });
 });
+
+describe('roundTotal (Day 39)', () => {
+  it('rounds to the nearest step, halves up, and reports the difference', async () => {
+    const { roundTotal } = await import('../src/domain/pricing.js');
+    expect(roundTotal(18_111, 100)).toEqual({ totalMinor: 18_100, roundingMinor: -11 });
+    expect(roundTotal(18_150, 100)).toEqual({ totalMinor: 18_200, roundingMinor: 50 });
+    expect(roundTotal(18_149, 50)).toEqual({ totalMinor: 18_150, roundingMinor: 1 });
+    expect(roundTotal(18_111, 0)).toEqual({ totalMinor: 18_111, roundingMinor: 0 });
+    expect(roundTotal(18_111, 1)).toEqual({ totalMinor: 18_111, roundingMinor: 0 });
+  });
+});

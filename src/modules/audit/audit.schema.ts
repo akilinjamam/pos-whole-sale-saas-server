@@ -12,6 +12,9 @@ export const listAuditQuerySchema = listQuerySchema.extend({
     .string()
     .regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
     .optional(),
+  /** Inclusive days, `YYYY-MM-DD`, in the org's zone (Day 39). */
+  from: z.string().date('Use YYYY-MM-DD').optional(),
+  to: z.string().date('Use YYYY-MM-DD').optional(),
 });
 
 export type ListAuditQuery = z.infer<typeof listAuditQuerySchema>;

@@ -50,6 +50,16 @@ export async function listAudit(
   if (query.action) filter.action = query.action;
   if (query.entity) filter.entity = query.entity;
   if (query.entityId) filter.entityId = new Types.ObjectId(query.entityId);
+  if (query.from || query.to) {
+    const zone =
+      (await Org.findById(actor.orgId).select('timeZone').lean())?.timeZone ?? 'Asia/Dhaka';
+    filter.at = {
+      ...(query.from ? { $gte: startOfDayIn(query.from, zone) } : {}),
+      ...(query.to
+        ? { $lt: new Date(startOfDayIn(query.to, zone).getTime() + 86_400_000) }
+        : {}),
+    };
+  }
   const page = await paginate(AuditLog, {
     filter,
     query,

@@ -41,6 +41,10 @@ export interface OrgDoc {
   email: string | null;
   address: string | null;
   logoUrl: string | null;
+  /** A line under the letterhead on every A4 invoice — "Authorised distributor of …". */
+  invoiceHeaderNote: string | null;
+  /** The foot of every A4 invoice: terms, bank details, a thank-you. */
+  invoiceFooter: string | null;
   currency: string;
   timeZone: string;
   fiscalYearStartMonth: number;
@@ -74,6 +78,8 @@ const orgSchema = new Schema<OrgDoc>({
   email: { type: String, trim: true, lowercase: true, default: null },
   address: { type: String, trim: true, default: null },
   logoUrl: { type: String, trim: true, default: null },
+  invoiceHeaderNote: { type: String, trim: true, default: null },
+  invoiceFooter: { type: String, trim: true, default: null },
   currency: { type: String, default: 'BDT', uppercase: true, minlength: 3, maxlength: 3 },
   timeZone: { type: String, default: 'Asia/Dhaka' },
   fiscalYearStartMonth: { type: Number, default: 7, min: 1, max: 12 },
@@ -102,6 +108,8 @@ export function toOrgPayload(doc: OrgDoc): OrgPayload {
     email: doc.email,
     address: doc.address,
     logoUrl: doc.logoUrl,
+    invoiceHeaderNote: doc.invoiceHeaderNote ?? null,
+    invoiceFooter: doc.invoiceFooter ?? null,
     currency: doc.currency,
     timeZone: doc.timeZone,
     fiscalYearStartMonth: doc.fiscalYearStartMonth,

@@ -2,7 +2,7 @@ import { mongo, Types } from 'mongoose';
 
 import { checkCredit } from '../../domain/creditCheck.js';
 import { applyTenders, TenderError } from '../../domain/tenders.js';
-import { computeTotals, PricingError } from '../../domain/pricing.js';
+import { computeTotals, PricingError, roundTotal } from '../../domain/pricing.js';
 import { ApiError } from '../../lib/ApiError.js';
 import { nextDocNo } from '../../lib/numbering.js';
 import { withTransaction } from '../../lib/withTransaction.js';
@@ -207,9 +207,9 @@ export async function priceCart(
     });
   }
 
-  let totals;
+  let computed;
   try {
-    totals = computeTotals(
+    computed = computeTotals(
       input.lines.map((line, i) => ({
         unitPriceMinor: priced[i]!.unitPriceMinor,
         qty: stockLines[i]!.qty,
@@ -221,6 +221,17 @@ export async function priceCart(
     if (error instanceof PricingError) throw refuse(error.field, error.message);
     throw error;
   }
+  // The org's rounding (Day 39): what is charged is the rounded total; the lines stay exact and
+  // the difference is recorded on the invoice.
+  const step =
+    (await Org.findById(actor.orgId).select('settings.roundInvoiceTo').lean())?.settings
+      ?.roundInvoiceTo ?? 0;
+  const rounded = roundTotal(computed.totalMinor, step);
+  const totals = {
+    ...computed,
+    totalMinor: rounded.totalMinor,
+    roundingMinor: rounded.roundingMinor,
+  };
 
   return { party, isDealer, stockLines, productBy, variantLabel, priced, totals };
 }
@@ -421,6 +432,7 @@ export async function postPosSale(
             subtotalMinor: totals.grossMinor,
             discountMinor: totals.lineDiscountMinor + totals.orderDiscountMinor,
             taxMinor: 0,
+            roundingMinor: totals.roundingMinor,
             grandTotalMinor: totals.totalMinor,
             paidMinor,
             balanceMinor: unpaidMinor,
@@ -689,6 +701,7 @@ export async function quotePosCart(actor: RequestActor, input: CartInput): Promi
     }),
     grossMinor: totals.grossMinor,
     discountMinor: totals.lineDiscountMinor + totals.orderDiscountMinor,
+    roundingMinor: totals.roundingMinor,
     totalMinor: totals.totalMinor,
     customer: party
       ? {

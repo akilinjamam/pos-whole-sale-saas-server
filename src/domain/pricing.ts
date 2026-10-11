@@ -493,3 +493,19 @@ export function computeTotals(
     totalMinor: subtotalMinor - orderDiscountMinor,
   };
 }
+
+/**
+ * An invoice total rounded as the org asks (`settings.roundInvoiceTo`, Day 39): to the nearest
+ * multiple of `stepMinor`, halves up — 100 rounds ৳1,234.50 to ৳1,235. 0 or 1 means no rounding.
+ * The difference is recorded on the invoice as `roundingMinor`, so lines + shipping + rounding
+ * still add up to the total, to the poisha.
+ */
+export function roundTotal(
+  totalMinor: number,
+  stepMinor: number,
+): { totalMinor: number; roundingMinor: number } {
+  if (!Number.isInteger(totalMinor)) throw new RangeError('roundTotal: whole minor units');
+  if (!stepMinor || stepMinor <= 1) return { totalMinor, roundingMinor: 0 };
+  const rounded = Math.floor((totalMinor + stepMinor / 2) / stepMinor) * stepMinor;
+  return { totalMinor: rounded, roundingMinor: rounded - totalMinor };
+}

@@ -307,8 +307,16 @@ export type DocSeries = Member<typeof DOC_SERIES>;
 
 // ─── Audit (Day 31) ─────────────────────────────────────────────────────────────────────
 
-/** What the audit log records. Day 31: credit overrides; Day 39 adds the rest. */
-export const AUDIT_ACTIONS = ['CREDIT_OVERRIDE'] as const;
+/**
+ * What the audit log records. Day 31: credit overrides. Day 39: changes to the company profile,
+ * the business rules and the document numbering — the edits that change how everything posts.
+ */
+export const AUDIT_ACTIONS = [
+  'CREDIT_OVERRIDE',
+  'ORG_PROFILE_CHANGE',
+  'SETTINGS_CHANGE',
+  'NUMBER_SERIES_CHANGE',
+] as const;
 export type AuditAction = Member<typeof AUDIT_ACTIONS>;
 
 // ─── API error codes ────────────────────────────────────────────────────────────────────
