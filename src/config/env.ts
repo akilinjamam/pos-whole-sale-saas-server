@@ -27,6 +27,15 @@ const envSchema = z.object({
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
 
   CORS_ORIGINS: z.string().default('http://localhost:5174'),
+  /**
+   * SameSite on the refresh-token cookie. `lax` only works when client and API share a site
+   * (app.example.com + api.example.com). When they don't — a Netlify client calling an
+   * onrender.com API — the browser never sends a `lax` cookie to `/auth/refresh`, the refresh
+   * fails, and every user is logged out the moment their 15-minute access token expires.
+   * `none` fixes that (and forces `Secure`), but Safari blocks such third-party cookies anyway;
+   * a shared domain is the real fix.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('debug'),
@@ -101,6 +110,7 @@ export const config = Object.freeze({
     corsOrigins: raw.CORS_ORIGINS.split(',')
       .map((o) => o.trim())
       .filter(Boolean),
+    cookieSameSite: raw.COOKIE_SAMESITE,
     rateLimitWindowMs: raw.RATE_LIMIT_WINDOW_MS,
     rateLimitMax: raw.RATE_LIMIT_MAX,
   },

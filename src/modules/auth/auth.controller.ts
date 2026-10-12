@@ -21,18 +21,27 @@ const REFRESH_COOKIE = 'refreshToken';
  * httpOnly puts the long-lived credential out of reach of any XSS on the page — so both are
  * offered and the client picks.
  */
+/**
+ * Shared by set and clear: a browser only overwrites a cookie whose attributes match, and it
+ * rejects `SameSite=None` without `Secure` outright — so `none` forces `Secure` even when
+ * NODE_ENV was left unset on the host.
+ */
+const cookieOptions = {
+  httpOnly: true,
+  secure: config.isProduction || config.http.cookieSameSite === 'none',
+  sameSite: config.http.cookieSameSite,
+  path: '/api/v1/auth',
+} as const;
+
 function setRefreshCookie(res: Response, token: string): void {
   res.cookie(REFRESH_COOKIE, token, {
-    httpOnly: true,
-    secure: config.isProduction,
-    sameSite: 'lax',
-    path: '/api/v1/auth',
+    ...cookieOptions,
     maxAge: ttlToSeconds(config.jwt.refreshTtl) * 1000,
   });
 }
 
 function clearRefreshCookie(res: Response): void {
-  res.clearCookie(REFRESH_COOKIE, { path: '/api/v1/auth' });
+  res.clearCookie(REFRESH_COOKIE, cookieOptions);
 }
 
 export const login = asyncHandler(async (req, res) => {
