@@ -7,6 +7,7 @@ import { paginate } from '../../lib/paginate.js';
 import { withTransaction } from '../../lib/withTransaction.js';
 import { assertLocationAllowed, locationScopeOf } from '../../middleware/requireLocation.js';
 import { hasPermission } from '../../middleware/requirePermission.js';
+import { carryAverageCost } from '../../services/itemCost.js';
 import { postLedgerEntries } from '../../services/partyLedger.service.js';
 import { postMovements } from '../../services/stock.service.js';
 import { Dispatch } from '../dispatch/dispatch.model.js';
@@ -16,8 +17,6 @@ import { Lot } from '../lot/lot.model.js';
 import { PaymentDoc } from '../payment/paymentDoc.model.js';
 import { invoicePayload } from '../pos/posSale.service.js';
 import { Product } from '../product/product.model.js';
-import { StockBalance } from '../stock/stockBalance.model.js';
-import { Variant } from '../variant/variant.model.js';
 import { WholesaleOrder } from '../wholesaleOrder/wholesaleOrder.model.js';
 
 import { raiseCreditNote, serialize as serializeCreditNotes } from './creditNote.service.js';
@@ -209,30 +208,6 @@ async function checkDestinations(actor: RequestActor, input: WholesaleReturnInpu
   });
   if (errors.length) throw ApiError.validation('Validation failed', errors);
   for (const id of ids) assertLocationAllowed(actor.user, id);
-}
-
-/**
- * A location that has never held the item starts its balance row at cost 0. The item has one
- * moving average everywhere (Day 33), so the new row is given it.
- */
-async function carryAverageCost(
-  session: ClientSession,
-  orgId: Types.ObjectId,
-  items: { productId: Types.ObjectId; variantId: Types.ObjectId | null }[],
-) {
-  for (const it of items) {
-    const avg = it.variantId
-      ? (await Variant.findById(it.variantId).select('avgCostMinor').session(session).lean())
-          ?.avgCostMinor
-      : (await Product.findById(it.productId).select('avgCostMinor').session(session).lean())
-          ?.avgCostMinor;
-    if (!avg) continue;
-    await StockBalance.updateMany(
-      { orgId, productId: it.productId, variantId: it.variantId ?? null, avgCostMinor: 0 },
-      { $set: { avgCostMinor: avg } },
-      { session },
-    );
-  }
 }
 
 // ─── Posting ────────────────────────────────────────────────────────────────────────────

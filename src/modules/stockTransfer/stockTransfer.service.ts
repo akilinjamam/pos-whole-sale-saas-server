@@ -5,6 +5,7 @@ import { nextDocNo } from '../../lib/numbering.js';
 import { paginate } from '../../lib/paginate.js';
 import { withTransaction } from '../../lib/withTransaction.js';
 import { assertLocationAllowed, locationScopeOf } from '../../middleware/requireLocation.js';
+import { carryAverageCost, itemAverageCost } from '../../services/itemCost.js';
 import { postMovements } from '../../services/stock.service.js';
 import {
   assertStockLocation,
@@ -226,6 +227,9 @@ export async function deleteTransfer(actor: RequestActor, id: Types.ObjectId): P
 /**
  * One leg: every line out of `from` and into `to`, as an OUT then an IN per line. The same lot
  * and the same serials travel on both halves — a transfer never creates a lot, it moves one.
+ *
+ * Both halves carry the item's moving average, so the ledger values the move. The average itself
+ * does not change — a transfer never changes what a frame cost.
  */
 async function leg(
   session: ClientSession,
@@ -239,6 +243,7 @@ async function leg(
   const perLine = await Promise.all(
     doc.lines.map(async (l) => {
       const tracking = await trackingFor(session, actor.orgId, l, 'OUT', actor.actorId);
+      const cost = await itemAverageCost(session, l.productId, l.variantId);
       const common = {
         productId: l.productId,
         variantId: l.variantId,
@@ -246,6 +251,7 @@ async function leg(
         refId: doc._id,
         refDocNo: docNo,
         narration,
+        unitCostMinor: cost || null,
         ...tracking,
       };
       return [
@@ -312,6 +318,8 @@ export async function postTransfer(
         direct ? 'Transfer' : 'Transfer — dispatched to transit',
       ),
     });
+    // The receiving shelf may be new, and a new balance row starts at cost 0.
+    await carryAverageCost(session, actor.orgId, claimed.lines);
   });
 
   return getTransfer(actor, id);
@@ -366,6 +374,7 @@ export async function receiveTransfer(
         'Transfer — received from transit',
       ),
     });
+    await carryAverageCost(session, actor.orgId, claimed.lines);
   });
 
   return getTransfer(actor, id);
