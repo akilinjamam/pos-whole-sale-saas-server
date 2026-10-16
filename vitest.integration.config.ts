@@ -21,5 +21,8 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // tenantIsolation.int.test.ts walks every route over real HTTP from one address — a few
+    // hundred requests a minute. dotenv never overrides a variable already set, so this wins.
+    env: { RATE_LIMIT_MAX: '100000' },
   },
 });
