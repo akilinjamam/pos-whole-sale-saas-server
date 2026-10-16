@@ -96,6 +96,7 @@ export async function signup(input: SignupInput): Promise<LoginResponse> {
         },
         status: 'TRIAL',
         trialDays: config.saas.trialDays,
+        planCode: config.saas.trialPlanCode,
         signupSource: 'SIGNUP',
       },
       session,

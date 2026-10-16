@@ -35,6 +35,12 @@ orgRouter.patch(
   ctrl.updateCurrentOrgSettings,
 );
 
+// Plan, status and usage (SaaS phase 4). Self-service: every signed-in user — a cashier included —
+// needs to know their business is read-only and why, so it carries no permission. It is also
+// exempt from the subscription check itself (`authenticate`), or an expired business could not
+// read why it is expired.
+orgRouter.get('/subscription', authenticate, ctrl.getSubscription);
+
 // The first-steps checklist on the dashboard (SaaS phase 3). Reading it is `org:read`, like the
 // profile it summarises; closing it changes the business, so it is `org:update`.
 orgRouter.get('/onboarding', authenticate, requirePermission('org:read'), ctrl.getOnboarding);

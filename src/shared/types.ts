@@ -10,8 +10,11 @@ import type {
   BaseUom,
   ErrorCode,
   LocationType,
+  LimitedResource,
   OnboardingStep,
   OrgStatus,
+  PlanFeature,
+  SubscriptionAccess,
   PackCode,
   PartyRole,
   ProductType,
@@ -184,6 +187,40 @@ export type RefreshResponse = TokenPair;
 /** `POST /auth/verify-email` — the address that is now verified. */
 export interface VerifyEmailResponse {
   email: string;
+}
+
+/** A subscription plan (SaaS phase 4). Limits of `null` are unlimited. */
+export interface PlanPayload {
+  code: string;
+  name: string;
+  description: string | null;
+  priceMonthlyMinor: number;
+  priceYearlyMinor: number;
+  limits: Record<LimitedResource, number | null>;
+  features: PlanFeature[];
+}
+
+/**
+ * `GET /org/subscription` — where the caller's business stands. `status` is the *effective* one: a
+ * trial whose end date has passed reads PAST_DUE even before the daily job (phase 6) records it.
+ */
+export interface SubscriptionPayload {
+  status: OrgStatus;
+  access: SubscriptionAccess;
+  planCode: string | null;
+  /** Null for a business with no plan — one that predates SaaS, with nothing limited. */
+  plan: PlanPayload | null;
+  trialEndsAt: string | null;
+  currentPeriodEndsAt: string | null;
+  /** When payment fell due; set once the trial or paid period has ended. */
+  dueSince: string | null;
+  /** When a PAST_DUE business becomes read-only. */
+  graceEndsAt: string | null;
+  /** Whole days until the trial / period ends — or, once past due, until read-only. */
+  daysLeft: number | null;
+  usage: Record<LimitedResource, number>;
+  /** How to pay (bKash number, bank account) — set on the server, shown on the billing page. */
+  paymentInstructions: string | null;
 }
 
 /** `GET /org/onboarding` — the first-steps checklist on the dashboard (SaaS phase 3). */

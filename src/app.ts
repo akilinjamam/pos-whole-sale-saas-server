@@ -14,6 +14,7 @@ import { config } from './config/env.js';
 import { logger } from './config/logger.js';
 import { authenticateUnlessPublic } from './middleware/authenticate.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { requireFeature } from './middleware/requireFeature.js';
 import { allRoutes, publicPaths } from './routes/index.js';
 import rootRouter from './routes/root.js';
 
@@ -107,8 +108,9 @@ export function createApp(): Express {
   // anonymous. `publicPaths` is the explicit, deliberately tiny exemption list.
   app.use('/api/v1', authenticateUnlessPublic(publicPaths));
 
-  for (const { path, route } of allRoutes) {
-    app.use(`/api/v1/${path}`, route);
+  for (const { path, route, feature } of allRoutes) {
+    if (feature) app.use(`/api/v1/${path}`, requireFeature(feature), route);
+    else app.use(`/api/v1/${path}`, route);
   }
 
   app.use(notFoundHandler);

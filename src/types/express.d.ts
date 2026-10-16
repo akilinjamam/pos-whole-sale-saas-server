@@ -1,3 +1,4 @@
+import type { OrgAccess } from '../services/subscription.service.js';
 import type { AuthUser } from '@shared/types.js';
 
 /**
@@ -15,6 +16,8 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
+      /** The business's plan and subscription state, set by `authenticate` (SaaS phase 4). */
+      subscription?: OrgAccess;
     }
   }
 }

@@ -63,6 +63,12 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   TRIAL_DAYS: z.coerce.number().int().min(0).max(365).default(14),
+  /** The plan a new signup trials (SaaS phase 4) — its limits and features apply during the trial. */
+  TRIAL_PLAN_CODE: z.string().trim().toUpperCase().default('BUSINESS'),
+  /** Days after a trial / paid period ends before the business becomes read-only. */
+  GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
+  /** How to pay, shown on the billing page — e.g. "bKash 01XXXXXXXXX (merchant), reference: your business name". */
+  BILLING_INSTRUCTIONS: z.string().trim().optional(),
   /** Per IP, per 15 minutes, for each of signup / forgot-password / reset / verify. */
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   /**
@@ -157,6 +163,9 @@ export const config = Object.freeze({
     publicUrl: raw.APP_PUBLIC_URL,
     signupEnabled: raw.SIGNUP_ENABLED,
     trialDays: raw.TRIAL_DAYS,
+    trialPlanCode: raw.TRIAL_PLAN_CODE,
+    graceDays: raw.GRACE_DAYS,
+    billingInstructions: raw.BILLING_INSTRUCTIONS || null,
     authRateLimitMax: raw.AUTH_RATE_LIMIT_MAX,
   },
 

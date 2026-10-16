@@ -3,6 +3,7 @@ import { config } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import { withTransaction } from '../../lib/withTransaction.js';
 import { Org } from '../../modules/org/org.model.js';
+import { DEFAULT_PLANS, Plan } from '../../modules/plan/plan.model.js';
 import { User } from '../../modules/user/user.model.js';
 import {
   provisionOrg,
@@ -57,6 +58,21 @@ async function migrateUserEmailIndex(): Promise<void> {
   if (existing.some((index) => index.name === LEGACY_EMAIL_INDEX)) {
     await User.collection.dropIndex(LEGACY_EMAIL_INDEX);
     logger.info({ index: LEGACY_EMAIL_INDEX }, 'Dropped the per-org email index');
+  }
+}
+
+/** The default plans, inserted only when missing — a plan edited by the platform admin is kept. */
+async function seedPlans(): Promise<void> {
+  let added = 0;
+  for (const plan of DEFAULT_PLANS) {
+    const res = await Plan.updateOne({ code: plan.code }, { $setOnInsert: plan }, { upsert: true });
+    added += res.upsertedCount;
+  }
+  if (added > 0) {
+    logger.warn(
+      { added, codes: DEFAULT_PLANS.map((p) => p.code) },
+      'Default plans inserted — their prices and limits are PLACEHOLDERS; set the real ones before launch',
+    );
   }
 }
 
@@ -221,6 +237,7 @@ async function main(): Promise<void> {
   await connectDatabase();
 
   await migrateUserEmailIndex();
+  await seedPlans();
   await seedFirstOrg();
   await syncAllOrgs();
   await seedDemoUsers();

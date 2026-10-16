@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { ApiError } from '../../lib/ApiError.js';
 import { paginate } from '../../lib/paginate.js';
 import { assertProductBarcodesFree } from '../../services/barcode.service.js';
+import { assertWithinLimit } from '../../services/subscription.service.js';
 import { AXES_BY_TYPE, normaliseAttrs, productAttrsSchema } from '../../shared/catalog.js';
 import { validatePacks } from '../../shared/uom.js';
 import { Brand } from '../brand/brand.model.js';
@@ -324,6 +325,7 @@ export async function createProduct(
 ): Promise<ProductPayload> {
   const attrs = parseAttrs(input.type, input.attrs);
 
+  if (input.isActive !== false) await assertWithinLimit(orgId, 'products');
   assertVariantAxes(input.type, input.hasVariants ?? false, input.variantAxes ?? []);
   assertPacksValid(input.baseUom, input.packs);
   await assertReferencesExist(orgId, input.type, input.brandId, input.categoryId);
@@ -355,6 +357,8 @@ export async function updateProduct(
 ): Promise<ProductPayload> {
   const current = await Product.findOne({ _id: id, orgId }).lean();
   if (!current) throw ApiError.notFound('Product');
+  // Switching a product back on takes a place in the plan, as creating one does.
+  if (input.isActive === true && !current.isActive) await assertWithinLimit(orgId, 'products');
 
   // Accepted so a form can PATCH the whole document back, but only as the value it already
   // has — see the note on `updateProductSchema`.

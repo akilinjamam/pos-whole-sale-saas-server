@@ -2,7 +2,9 @@ import { ApiError } from '../lib/ApiError.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { extractBearerToken, verifyAccessToken } from '../lib/tokens.js';
 import { User } from '../modules/user/user.model.js';
+import { SAFE_METHODS } from '../domain/subscription.js';
 import { toAuthUser } from '../services/identity.service.js';
+import { orgAccess } from '../services/subscription.service.js';
 
 import { markAuthenticate } from './guardMeta.js';
 
@@ -52,9 +54,41 @@ export const authenticate: RequestHandler = markAuthenticate(
     }
 
     req.user = await toAuthUser(user);
+
+    // The business's subscription (SaaS phase 4). Read-only and blocked businesses can still
+    // sign in, see who they are and read their billing page — that is how they find out why.
+    const access = await orgAccess(user.orgId);
+    req.subscription = access;
+    const path = req.originalUrl.split('?')[0] ?? '';
+    const alwaysAllowed = SUBSCRIPTION_EXEMPT.some((p) => path === p || path.startsWith(`${p}/`));
+
+    if (!alwaysAllowed && access.state.access === 'BLOCKED') {
+      throw new ApiError(
+        403,
+        'ORG_SUSPENDED',
+        access.state.status === 'CANCELLED'
+          ? 'This business account has been closed'
+          : 'This business account is suspended — contact support',
+      );
+    }
+    if (!alwaysAllowed && access.state.access === 'READ_ONLY' && !SAFE_METHODS.has(req.method)) {
+      throw new ApiError(
+        402,
+        'SUBSCRIPTION_EXPIRED',
+        'Your subscription has ended, so changes are paused. Renew to continue — your data is safe and still visible.',
+        { dueSince: access.state.dueSince?.toISOString() ?? null },
+      );
+    }
+
     next();
   }),
 );
+
+/**
+ * Reachable whatever the subscription: the caller's own session (`/auth/*` — me, logout, password)
+ * and the billing summary that explains the state they are in.
+ */
+const SUBSCRIPTION_EXEMPT = ['/api/v1/auth', '/api/v1/org/subscription'];
 
 /**
  * The blanket guard mounted at `/api/v1` in app.ts, with the public mounts exempted.

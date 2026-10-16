@@ -92,6 +92,7 @@ describe('signup', () => {
     const org = await Org.findById(orgId).lean();
     expect(org?.status).toBe('TRIAL');
     expect(org?.signupSource).toBe('SIGNUP');
+    expect(org?.planCode).toBe('BUSINESS');
     expect(org?.trialEndsAt).toBeInstanceOf(Date);
     expect(org!.trialEndsAt!.getTime()).toBeGreaterThan(Date.now() + 13 * 86_400_000);
 

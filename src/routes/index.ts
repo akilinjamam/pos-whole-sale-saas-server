@@ -1,3 +1,4 @@
+import type { PlanFeature } from '@shared/enums.js';
 import type { Router } from 'express';
 
 import auditRouter from '../modules/audit/audit.route.js';
@@ -52,6 +53,8 @@ export interface RouteEntry {
   path: string;
   route: Router;
   public?: boolean;
+  /** The plan feature this whole module needs (SaaS phase 4); see `middleware/requireFeature.ts`. */
+  feature?: PlanFeature;
 }
 
 export const allRoutes: RouteEntry[] = [
@@ -106,7 +109,7 @@ export const allRoutes: RouteEntry[] = [
 
   // The counter (Day 18): sessions, sales, held sales. A sale is an Invoice + receipts + stock
   // movements (+ ledger on credit), written by one endpoint in one transaction.
-  { path: 'pos', route: posRouter },
+  { path: 'pos', route: posRouter, feature: 'POS' },
 
   // Wholesale orders (Day 21). Status moves only through `domain/orderStateMachine.ts`.
   { path: 'orders', route: wholesaleOrderRouter },
@@ -131,18 +134,18 @@ export const allRoutes: RouteEntry[] = [
 
   // Purchase orders (Day 32). Status moves only through `domain/poStateMachine.ts`; receiving is
   // done by a posted goods receipt (Day 33), not here.
-  { path: 'purchase-orders', route: supplierPoRouter },
+  { path: 'purchase-orders', route: supplierPoRouter, feature: 'PURCHASING' },
 
   // Goods receipts (Day 33): posting brings stock in, re-costs it, moves the PO and credits the
   // supplier — in one transaction.
-  { path: 'goods-receipts', route: goodsReceiptRouter },
+  { path: 'goods-receipts', route: goodsReceiptRouter, feature: 'PURCHASING' },
   // Goods going back to the supplier (Day 34): stock out, cost, a debit note.
-  { path: 'purchase-returns', route: purchaseReturnRouter },
+  { path: 'purchase-returns', route: purchaseReturnRouter, feature: 'PURCHASING' },
   // Goods back from dealers (Day 36), and the credit notes they raise.
   { path: 'sales-returns', route: salesReturnRouter },
   { path: 'credit-notes', route: creditNoteRouter },
   // The report suite (Day 37): read-only, scoped, cost-gated, each with its ties.
-  { path: 'reports', route: reportsRouter },
+  { path: 'reports', route: reportsRouter, feature: 'REPORTS' },
   // The home dashboard (Day 38): summaries of the reports, by their own functions.
   { path: 'dashboard', route: dashboardRouter },
   // What needs attention now (Day 39): low stock, expiry, overdue, approvals — computed, not stored.

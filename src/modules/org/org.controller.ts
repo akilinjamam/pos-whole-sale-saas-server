@@ -2,6 +2,8 @@ import { asyncHandler } from '../../lib/asyncHandler.js';
 import { orgIdOf, requestActorOf } from '../../lib/requestUser.js';
 import { sendData } from '../../lib/respond.js';
 
+import { getSubscription as subscriptionOf } from '../../services/subscription.service.js';
+
 import * as orgService from './org.service.js';
 
 import type { UpdateOrgInput, UpdateOrgSettingsInput } from './org.schema.js';
@@ -32,4 +34,8 @@ export const getOnboarding = asyncHandler(async (req, res) => {
 
 export const dismissOnboarding = asyncHandler(async (req, res) => {
   sendData(res, await orgService.dismissOnboarding(requestActorOf(req)));
+});
+
+export const getSubscription = asyncHandler(async (req, res) => {
+  sendData(res, await subscriptionOf(orgIdOf(req)));
 });

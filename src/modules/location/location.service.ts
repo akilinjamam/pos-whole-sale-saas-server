@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 
 import { ApiError } from '../../lib/ApiError.js';
 import { paginate } from '../../lib/paginate.js';
+import { assertWithinLimit } from '../../services/subscription.service.js';
 
 import { Location, toLocationPayload } from './location.model.js';
 
@@ -72,6 +73,7 @@ export async function createLocation(
   input: CreateLocationInput,
   actorId: Types.ObjectId,
 ): Promise<LocationPayload> {
+  if (input.isActive !== false) await assertWithinLimit(orgId, 'locations');
   // The `{orgId, code}` unique index is the real guard; the duplicate surfaces as a 409 from
   // errorHandler. Checking first as well would only add a race, not remove one.
   const doc = await Location.create({
@@ -89,6 +91,10 @@ export async function updateLocation(
   input: UpdateLocationInput,
   actorId: Types.ObjectId,
 ): Promise<LocationPayload> {
+  // Switching a location back on takes a place in the plan, as creating one does.
+  if (input.isActive === true && (await Location.exists({ _id: id, orgId, isActive: false }))) {
+    await assertWithinLimit(orgId, 'locations');
+  }
   const doc = await Location.findOneAndUpdate(
     { _id: id, orgId },
     { $set: { ...input, updatedBy: actorId } },

@@ -4,6 +4,7 @@ import { ApiError } from '../../lib/ApiError.js';
 import { paginate } from '../../lib/paginate.js';
 import { resolveAccess, resolveAccessMany } from '../../services/identity.service.js';
 import { assertEmailAvailable } from '../../services/provisioning.service.js';
+import { assertWithinLimit } from '../../services/subscription.service.js';
 import { Location } from '../location/location.model.js';
 import { Role } from '../role/role.model.js';
 
@@ -116,6 +117,7 @@ export async function createUser(
   actorId: Types.ObjectId,
 ): Promise<UserPayload> {
   await assertActorVerified(orgId, actorId);
+  if (input.isActive !== false) await assertWithinLimit(orgId, 'users');
   await assertReferencesExist(orgId, input.roleIds, input.locationIds);
   // Platform-wide, not per org: login finds the business by the email alone.
   await assertEmailAvailable(input.email);
@@ -162,6 +164,10 @@ export async function updateUser(
 ): Promise<UserPayload> {
   await assertReferencesExist(orgId, input.roleIds, input.locationIds);
   if (input.email !== undefined) await assertEmailAvailable(input.email, { exceptUserId: id });
+  // Switching a user back on takes a seat in the plan, as creating one does.
+  if (input.isActive === true && (await User.exists({ _id: id, orgId, isActive: false }))) {
+    await assertWithinLimit(orgId, 'users');
+  }
 
   const update: Record<string, unknown> = { ...input, updatedBy: actorId };
 

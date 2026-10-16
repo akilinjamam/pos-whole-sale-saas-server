@@ -116,6 +116,9 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'must be able to choose their till without holding `location:read`.',
   'auth/logout': "Ends the caller's own session. A user must always be able to sign out.",
   'auth/password': "Changes the caller's own password, and re-checks the current one itself.",
+  'org/subscription':
+    "The caller's own business's plan, status and usage. Every user — a cashier included — must " +
+    'be able to see that the business is read-only and why; it discloses counts, not records.',
   'auth/resend-verification':
     "Re-sends the caller's own verification email; a 60-second cooldown stops it being spammed.",
   notifications:

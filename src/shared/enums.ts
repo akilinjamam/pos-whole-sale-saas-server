@@ -106,6 +106,24 @@ export const ONBOARDING_STEPS = [
 ] as const;
 export type OnboardingStep = Member<typeof ONBOARDING_STEPS>;
 
+/**
+ * Parts of the product a plan can include or leave out (SaaS phase 4). The core — catalog, stock,
+ * dealers, wholesale orders, dispatch, invoices, receivables — is in every plan.
+ */
+export const PLAN_FEATURES = ['POS', 'PURCHASING', 'REPORTS'] as const;
+export type PlanFeature = Member<typeof PLAN_FEATURES>;
+
+/** What a plan caps by count. `null` in a plan's limits means unlimited. */
+export const LIMITED_RESOURCES = ['users', 'locations', 'products'] as const;
+export type LimitedResource = Member<typeof LIMITED_RESOURCES>;
+
+/**
+ * What a business may do right now, given its subscription: everything, look but not change
+ * (expired past the grace period), or nothing (suspended / cancelled).
+ */
+export const SUBSCRIPTION_ACCESS = ['FULL', 'READ_ONLY', 'BLOCKED'] as const;
+export type SubscriptionAccess = Member<typeof SUBSCRIPTION_ACCESS>;
+
 /** How a business came to exist: the seed script, the public signup page, or a platform admin. */
 export const SIGNUP_SOURCES = ['SEED', 'SIGNUP', 'PLATFORM'] as const;
 export type SignupSource = Member<typeof SIGNUP_SOURCES>;
@@ -360,6 +378,14 @@ export const ERROR_CODES = [
   'TOKEN_INVALID',
   // Public signup is switched off (SIGNUP_ENABLED=false).
   'SIGNUP_DISABLED',
+  // Subscription (SaaS phase 4). 402: expired past the grace period, so changes are refused.
+  'SUBSCRIPTION_EXPIRED',
+  // 403: the business is suspended or cancelled.
+  'ORG_SUSPENDED',
+  // 409: creating one more user / location / product would exceed the plan.
+  'PLAN_LIMIT_REACHED',
+  // 403: the plan does not include this part of the product (POS, purchasing, reports).
+  'FEATURE_NOT_IN_PLAN',
   'FORBIDDEN',
   'NOT_FOUND',
   'DUPLICATE_DOCUMENT',
