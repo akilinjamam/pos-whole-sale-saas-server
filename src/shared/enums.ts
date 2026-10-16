@@ -96,6 +96,16 @@ export type PartyRole = Member<typeof PARTY_ROLES>;
 export const ORG_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'] as const;
 export type OrgStatus = Member<typeof ORG_STATUSES>;
 
+/** The first-steps checklist a new business sees on its dashboard, in display order. */
+export const ONBOARDING_STEPS = [
+  'VERIFY_EMAIL',
+  'COMPANY_DETAILS',
+  'FIRST_PRODUCT',
+  'FIRST_DEALER',
+  'INVITE_USER',
+] as const;
+export type OnboardingStep = Member<typeof ONBOARDING_STEPS>;
+
 /** How a business came to exist: the seed script, the public signup page, or a platform admin. */
 export const SIGNUP_SOURCES = ['SEED', 'SIGNUP', 'PLATFORM'] as const;
 export type SignupSource = Member<typeof SIGNUP_SOURCES>;
@@ -344,6 +354,12 @@ export const ERROR_CODES = [
   'ACCOUNT_DISABLED',
   // An email belongs to one user on the whole platform — login finds the business by it.
   'EMAIL_TAKEN',
+  // The action needs a verified email address first (e.g. an owner adding staff).
+  'EMAIL_NOT_VERIFIED',
+  // A link from an email that is unknown, already used, or expired.
+  'TOKEN_INVALID',
+  // Public signup is switched off (SIGNUP_ENABLED=false).
+  'SIGNUP_DISABLED',
   'FORBIDDEN',
   'NOT_FOUND',
   'DUPLICATE_DOCUMENT',

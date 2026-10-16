@@ -25,3 +25,11 @@ export const updateCurrentOrgSettings = asyncHandler(async (req, res) => {
   const input = req.body as UpdateOrgSettingsInput;
   sendData(res, await orgService.updateOrgSettings(requestActorOf(req), input));
 });
+
+export const getOnboarding = asyncHandler(async (req, res) => {
+  sendData(res, await orgService.getOnboarding(requestActorOf(req)));
+});
+
+export const dismissOnboarding = asyncHandler(async (req, res) => {
+  sendData(res, await orgService.dismissOnboarding(requestActorOf(req)));
+});

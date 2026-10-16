@@ -44,6 +44,7 @@ export function actorFor(
       locationIds: [],
       defaultLocationId: null,
       mustChangePassword: false,
+      emailVerified: true,
     },
   };
 }

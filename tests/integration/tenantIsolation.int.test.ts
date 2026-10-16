@@ -259,6 +259,7 @@ beforeAll(async () => {
           name: 'Owner B',
           email: `zztest-iso-b-${run}@example.invalid`,
           password: PASSWORD,
+          emailVerified: true,
         },
         status: 'ACTIVE',
         signupSource: 'PLATFORM',

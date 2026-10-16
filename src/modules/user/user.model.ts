@@ -43,6 +43,8 @@ export interface UserDoc {
   defaultLocationId: Types.ObjectId | null;
   isActive: boolean;
   mustChangePassword: boolean;
+  /** Null until the user follows the link in their verification email (SaaS phase 3). */
+  emailVerifiedAt: Date | null;
   lastLoginAt: Date | null;
   tokenVersion: number;
   createdBy: Types.ObjectId | null;
@@ -73,6 +75,7 @@ const userSchema = new Schema<UserDoc, UserModel, UserMethods>({
   defaultLocationId: { type: Schema.Types.ObjectId, ref: 'Location', default: null },
   isActive: { type: Boolean, default: true, index: true },
   mustChangePassword: { type: Boolean, default: false },
+  emailVerifiedAt: { type: Date, default: null },
   lastLoginAt: { type: Date, default: null },
   tokenVersion: { type: Number, default: 0 },
 });

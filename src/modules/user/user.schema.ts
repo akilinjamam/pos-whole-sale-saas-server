@@ -26,7 +26,8 @@ const permissionList = z
  * a shop floor where people type on a counter terminal, and a rule that forces `Pa$$w0rd!` onto
  * a sticky note beside the till is worse than one that asks for something longer.
  */
-const password = z.string().min(8, 'At least 8 characters').max(128);
+/** The one password rule — also used by signup and password reset. */
+export const password = z.string().min(8, 'At least 8 characters').max(128);
 
 export const idParamSchema = z.object({ id: objectId });
 

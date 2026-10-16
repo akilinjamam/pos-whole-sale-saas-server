@@ -1,14 +1,20 @@
 import { Types } from 'mongoose';
 
 import { ApiError } from '../../lib/ApiError.js';
+import { ONBOARDING_STEPS } from '../../shared/enums.js';
 import { withTransaction } from '../../lib/withTransaction.js';
 import { writeAudit } from '../../services/audit.service.js';
+
+import { Party } from '../party/party.model.js';
+import { Product } from '../product/product.model.js';
+import { User } from '../user/user.model.js';
 
 import { Org, toOrgPayload } from './org.model.js';
 
 import type { UpdateOrgInput, UpdateOrgSettingsInput } from './org.schema.js';
 import type { RequestActor } from '../../lib/requestUser.js';
-import type { OrgPayload } from '@shared/types.js';
+import type { OnboardingStep } from '@shared/enums.js';
+import type { OnboardingPayload, OrgPayload } from '@shared/types.js';
 
 /**
  * The org is read on nearly every posting path — `invoiceOnDispatch` on each dispatch,
@@ -104,4 +110,47 @@ export async function updateOrgSettings(
     return updated!;
   });
   return toOrgPayload(org);
+}
+
+// ─── First steps (SaaS phase 3) ─────────────────────────────────────────────────────────
+
+/**
+ * The checklist a new business sees on its dashboard. Computed from the data every time rather
+ * than stored, so a step done by any route — a product imported, a dealer added from the order
+ * screen — ticks itself.
+ *
+ * `VERIFY_EMAIL` is about the caller; the rest are about the business.
+ */
+export async function getOnboarding(actor: RequestActor): Promise<OnboardingPayload> {
+  const [org, hasProduct, hasDealer, users] = await Promise.all([
+    Org.findById(actor.orgId).select('phone address onboardingDismissedAt').lean(),
+    Product.exists({ orgId: actor.orgId }),
+    Party.exists({ orgId: actor.orgId, roles: 'DEALER' }),
+    User.countDocuments({ orgId: actor.orgId }),
+  ]);
+  if (!org) throw ApiError.notFound('Organisation');
+
+  const done: Record<OnboardingStep, boolean> = {
+    VERIFY_EMAIL: actor.user.emailVerified,
+    COMPANY_DETAILS: Boolean(org.phone && org.address),
+    FIRST_PRODUCT: Boolean(hasProduct),
+    FIRST_DEALER: Boolean(hasDealer),
+    INVITE_USER: users > 1,
+  };
+  const steps = ONBOARDING_STEPS.map((key) => ({ key, done: done[key] }));
+
+  return {
+    steps,
+    completed: steps.filter((s) => s.done).length,
+    total: steps.length,
+    dismissed: Boolean(org.onboardingDismissedAt),
+  };
+}
+
+export async function dismissOnboarding(actor: RequestActor): Promise<OnboardingPayload> {
+  await Org.updateOne(
+    { _id: actor.orgId, onboardingDismissedAt: null },
+    { $set: { onboardingDismissedAt: new Date(), updatedBy: actor.actorId } },
+  );
+  return getOnboarding(actor);
 }

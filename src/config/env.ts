@@ -50,6 +50,36 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // ─── SaaS: signup and email (phase 3) ───
+  /** Where the web client lives — the base of every link in an email. No trailing slash. */
+  APP_PUBLIC_URL: z
+    .string()
+    .url()
+    .default('http://localhost:5175')
+    .transform((v) => v.replace(/\/+$/, '')),
+  /** `false` closes public signup; businesses can then only be created by a platform admin. */
+  SIGNUP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  TRIAL_DAYS: z.coerce.number().int().min(0).max(365).default(14),
+  /** Per IP, per 15 minutes, for each of signup / forgot-password / reset / verify. */
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  /**
+   * SMTP. With no SMTP_HOST, emails are written to the log instead of sent — which is what
+   * development wants, and refused in production (below), where a silent signup is a lost customer.
+   */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  /** `true` for port 465 (implicit TLS); `false` for 587, which upgrades with STARTTLS. */
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().min(3).default('Optical Wholesale <no-reply@localhost>'),
+
   UPLOAD_DRIVER: z.enum(['local', 'cloudinary']).default('local'),
   UPLOAD_DIR: z.string().default('./uploads'),
 
@@ -80,6 +110,11 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+if (raw.NODE_ENV === 'production' && !raw.SMTP_HOST) {
+  console.error('\nSMTP_HOST is required in production — signup and password reset send email.\n');
+  process.exit(1);
+}
 
 export const config = Object.freeze({
   env: raw.NODE_ENV,
@@ -117,6 +152,22 @@ export const config = Object.freeze({
 
   logLevel: raw.LOG_LEVEL,
   logHttpHeaders: raw.LOG_HTTP_HEADERS,
+
+  saas: {
+    publicUrl: raw.APP_PUBLIC_URL,
+    signupEnabled: raw.SIGNUP_ENABLED,
+    trialDays: raw.TRIAL_DAYS,
+    authRateLimitMax: raw.AUTH_RATE_LIMIT_MAX,
+  },
+
+  mail: {
+    host: raw.SMTP_HOST ?? null,
+    port: raw.SMTP_PORT,
+    secure: raw.SMTP_SECURE,
+    user: raw.SMTP_USER ?? null,
+    pass: raw.SMTP_PASS ?? null,
+    from: raw.MAIL_FROM,
+  },
 
   uploads: {
     driver: raw.UPLOAD_DRIVER,

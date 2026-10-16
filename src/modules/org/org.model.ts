@@ -63,6 +63,8 @@ export interface OrgDoc {
   currentPeriodEndsAt: Date | null;
   ownerUserId: Types.ObjectId | null;
   signupSource: SignupSource;
+  /** When the owner closed the first-steps checklist (SaaS phase 3). */
+  onboardingDismissedAt: Date | null;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   createdAt: Date;
@@ -107,6 +109,7 @@ const orgSchema = new Schema<OrgDoc>({
   currentPeriodEndsAt: { type: Date, default: null },
   ownerUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   signupSource: { type: String, enum: SIGNUP_SOURCES, default: 'SEED' },
+  onboardingDismissedAt: { type: Date, default: null },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 });

@@ -89,6 +89,16 @@ const PUBLIC_ROUTES: Record<string, string> = {
   'auth/login': 'Obtaining a token is its purpose — requiring one would be circular.',
   'auth/refresh':
     'Same: it is the endpoint you call precisely because your access token is no longer usable.',
+  'auth/signup':
+    'Creating a business and its first account — the caller has no account yet. Rate-limited per ' +
+    'IP, switchable off with SIGNUP_ENABLED, and the owner cannot add users until verified.',
+  'auth/verify-email':
+    'Opened from an email link, often on another device with no session. The single-use, ' +
+    'hashed, expiring token in the body is the credential.',
+  'auth/forgot-password':
+    'For someone who cannot sign in. Answers the same for unknown addresses, and is rate-limited.',
+  'auth/reset-password':
+    'Same as verify-email: the single-use token from the email is the credential.',
 };
 
 /**
@@ -106,6 +116,8 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'must be able to choose their till without holding `location:read`.',
   'auth/logout': "Ends the caller's own session. A user must always be able to sign out.",
   'auth/password': "Changes the caller's own password, and re-checks the current one itself.",
+  'auth/resend-verification':
+    "Re-sends the caller's own verification email; a 60-second cooldown stops it being spammed.",
   notifications:
     'Every signed-in user has a bell. Each kind is included only for those who hold the ' +
     'permission of the screen it links to (expiry → stock:read, low stock → po:read, overdue → ' +

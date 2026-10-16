@@ -5,8 +5,15 @@ import { actorIdOf, requireAuth } from '../../lib/requestUser.js';
 import { ttlToSeconds } from '../../lib/tokens.js';
 import { sendData, sendNoContent } from '../../lib/respond.js';
 
+import * as accountService from './account.service.js';
 import * as authService from './auth.service.js';
 
+import type {
+  ForgotPasswordInput,
+  ResetPasswordInput,
+  SignupInput,
+  VerifyEmailInput,
+} from './account.schema.js';
 import type { LoginInput, RefreshInput } from './auth.schema.js';
 import type { ChangePasswordInput } from '../user/user.schema.js';
 import type { Response } from 'express';
@@ -87,4 +94,32 @@ export const changePassword = asyncHandler(async (req, res) => {
 
   setRefreshCookie(res, tokens.refreshToken);
   sendData(res, tokens);
+});
+
+// ─── Self-service account flows (SaaS phase 3) ──────────────────────────────────────────
+
+/** Signs the new owner straight in, exactly as `login` does. */
+export const signup = asyncHandler(async (req, res) => {
+  const result = await accountService.signup(req.body as SignupInput);
+  setRefreshCookie(res, result.refreshToken);
+  sendData(res, result, 201);
+});
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+  sendData(res, await accountService.verifyEmail((req.body as VerifyEmailInput).token));
+});
+
+export const resendVerification = asyncHandler(async (req, res) => {
+  sendData(res, await accountService.resendVerification(requireAuth(req)));
+});
+
+/** 204 whether or not the address has an account — see the service. */
+export const forgotPassword = asyncHandler(async (req, res) => {
+  await accountService.forgotPassword(req.body as ForgotPasswordInput);
+  sendNoContent(res);
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  await accountService.resetPassword(req.body as ResetPasswordInput);
+  sendNoContent(res);
 });

@@ -1,10 +1,17 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 
+import { config } from '../../config/env.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { validate } from '../../middleware/validate.js';
 import { changePasswordSchema } from '../user/user.schema.js';
 
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  signupSchema,
+  verifyEmailSchema,
+} from './account.schema.js';
 import * as ctrl from './auth.controller.js';
 import { loginSchema, refreshSchema } from './auth.schema.js';
 
@@ -36,6 +43,43 @@ const loginLimiter = rateLimit({
 });
 
 authRouter.post('/login', loginLimiter, validate({ body: loginSchema }), ctrl.login);
+
+/**
+ * Self-service account flows (SaaS phase 3). Public, so each is rate-limited per IP: signup creates
+ * a whole business, and forgot-password sends email to whatever address it is given.
+ */
+const accountLimiter = () =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: config.saas.authRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: { code: 'RATE_LIMITED', message: 'Too many attempts. Try again in a few minutes.' },
+    },
+  });
+
+authRouter.post('/signup', accountLimiter(), validate({ body: signupSchema }), ctrl.signup);
+authRouter.post(
+  '/verify-email',
+  accountLimiter(),
+  validate({ body: verifyEmailSchema }),
+  ctrl.verifyEmail,
+);
+authRouter.post('/resend-verification', authenticate, ctrl.resendVerification);
+authRouter.post(
+  '/forgot-password',
+  accountLimiter(),
+  validate({ body: forgotPasswordSchema }),
+  ctrl.forgotPassword,
+);
+authRouter.post(
+  '/reset-password',
+  accountLimiter(),
+  validate({ body: resetPasswordSchema }),
+  ctrl.resetPassword,
+);
 
 authRouter.post('/refresh', validate({ body: refreshSchema }), ctrl.refresh);
 

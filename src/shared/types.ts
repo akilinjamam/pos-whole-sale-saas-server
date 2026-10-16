@@ -10,6 +10,7 @@ import type {
   BaseUom,
   ErrorCode,
   LocationType,
+  OnboardingStep,
   OrgStatus,
   PackCode,
   PartyRole,
@@ -135,6 +136,8 @@ export interface AuthUser {
   locationIds: string[];
   defaultLocationId: string | null;
   mustChangePassword: boolean;
+  /** False until the user follows their verification email; an unverified owner cannot add users. */
+  emailVerified: boolean;
 }
 
 /**
@@ -177,6 +180,25 @@ export interface LoginResponse extends TokenPair {
 }
 
 export type RefreshResponse = TokenPair;
+
+/** `POST /auth/verify-email` — the address that is now verified. */
+export interface VerifyEmailResponse {
+  email: string;
+}
+
+/** `GET /org/onboarding` — the first-steps checklist on the dashboard (SaaS phase 3). */
+export interface OnboardingStepPayload {
+  key: OnboardingStep;
+  done: boolean;
+}
+
+export interface OnboardingPayload {
+  steps: OnboardingStepPayload[];
+  completed: number;
+  total: number;
+  /** The owner closed the checklist; it stays closed even if a step is still open. */
+  dismissed: boolean;
+}
 
 // ─── Identity & access payloads ─────────────────────────────────────────────────────────
 

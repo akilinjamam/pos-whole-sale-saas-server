@@ -60,7 +60,12 @@ beforeAll(async () => {
     provisionOrg(
       {
         business: { name: NAME },
-        owner: { name: 'Owner B', email: emailB.toUpperCase(), password: PASSWORD },
+        owner: {
+          name: 'Owner B',
+          email: emailB.toUpperCase(),
+          password: PASSWORD,
+          emailVerified: true,
+        },
         status: 'ACTIVE',
         signupSource: 'PLATFORM',
       },

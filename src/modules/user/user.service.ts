@@ -94,11 +94,28 @@ export async function getUser(orgId: Types.ObjectId, id: Types.ObjectId): Promis
   return toUserPayload(user, permissions, roleCodes);
 }
 
+/**
+ * An owner who has not verified their email cannot add staff (SaaS phase 3): otherwise a signup
+ * with someone else's address could go on to create accounts in their name. An actor with no user
+ * document (a script, a test) is not held to it.
+ */
+async function assertActorVerified(orgId: Types.ObjectId, actorId: Types.ObjectId): Promise<void> {
+  const actor = await User.findOne({ _id: actorId, orgId }).select('emailVerifiedAt').lean();
+  if (actor && !actor.emailVerifiedAt) {
+    throw new ApiError(
+      403,
+      'EMAIL_NOT_VERIFIED',
+      'Verify your email address before adding users — check your inbox for the link',
+    );
+  }
+}
+
 export async function createUser(
   orgId: Types.ObjectId,
   input: CreateUserInput,
   actorId: Types.ObjectId,
 ): Promise<UserPayload> {
+  await assertActorVerified(orgId, actorId);
   await assertReferencesExist(orgId, input.roleIds, input.locationIds);
   // Platform-wide, not per org: login finds the business by the email alone.
   await assertEmailAvailable(input.email);

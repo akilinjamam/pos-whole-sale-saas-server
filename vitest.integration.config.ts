@@ -23,6 +23,8 @@ export default defineConfig({
     hookTimeout: 60_000,
     // tenantIsolation.int.test.ts walks every route over real HTTP from one address — a few
     // hundred requests a minute. dotenv never overrides a variable already set, so this wins.
-    env: { RATE_LIMIT_MAX: '100000' },
+    // SMTP_HOST empty: emails go to `outbox` (mailer.service.ts) where the tests read the links,
+    // never to a real inbox. AUTH_RATE_LIMIT_MAX for the same reason as RATE_LIMIT_MAX.
+    env: { RATE_LIMIT_MAX: '100000', AUTH_RATE_LIMIT_MAX: '100000', SMTP_HOST: '' },
   },
 });

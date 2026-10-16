@@ -78,6 +78,7 @@ async function seedFirstOrg(): Promise<void> {
           email,
           password,
           mustChangePassword: !config.seed.adminPassword,
+          emailVerified: true,
         },
         status: 'ACTIVE',
         signupSource: 'SEED',
@@ -147,6 +148,15 @@ async function syncAllOrgs(): Promise<void> {
     logger.info({ count: legacy.modifiedCount }, 'Subscription fields backfilled as ACTIVE');
   }
 
+  // Users from before email verification existed were created by someone who knew them; treat
+  // their addresses as verified rather than locking every existing owner out of adding staff.
+  const unverified = await User.updateMany({ emailVerifiedAt: { $exists: false } }, [
+    { $set: { emailVerifiedAt: '$createdAt' } },
+  ]);
+  if (unverified.modifiedCount > 0) {
+    logger.info({ count: unverified.modifiedCount }, 'Existing users marked as verified');
+  }
+
   logger.info({ businesses: orgs.length }, 'System roles synced for every business');
 }
 
@@ -193,6 +203,7 @@ async function seedDemoUsers(): Promise<void> {
       defaultLocationId: null,
       isActive: true,
       mustChangePassword: false,
+      emailVerifiedAt: new Date(),
     });
     await user.save();
     created.push(demo.email);

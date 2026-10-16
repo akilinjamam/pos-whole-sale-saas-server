@@ -104,5 +104,6 @@ export async function toAuthUser(user: UserDoc): Promise<AuthUser> {
     locationIds: idsToStrings(user.locationIds),
     defaultLocationId: idToString(user.defaultLocationId),
     mustChangePassword: user.mustChangePassword,
+    emailVerified: Boolean(user.emailVerifiedAt),
   };
 }

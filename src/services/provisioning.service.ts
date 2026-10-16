@@ -39,6 +39,11 @@ export interface ProvisionOrgInput {
     /** Plaintext; the User model's pre-save hook hashes it. */
     password: string;
     mustChangePassword?: boolean;
+    /**
+     * True when the address is already trusted (the seed, a platform admin). A public signup leaves
+     * it false and the owner verifies by email.
+     */
+    emailVerified?: boolean;
   };
   status: OrgStatus;
   signupSource: SignupSource;
@@ -249,6 +254,7 @@ export async function provisionOrg(
     defaultLocationId: null,
     isActive: true,
     mustChangePassword: input.owner.mustChangePassword ?? false,
+    emailVerifiedAt: input.owner.emailVerified ? now : null,
     createdBy: ownerUserId,
     updatedBy: ownerUserId,
   });
