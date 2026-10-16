@@ -23,6 +23,7 @@ import lotRouter from '../modules/lot/lot.route.js';
 import numberSeriesRouter from '../modules/numberSeries/numberSeries.route.js';
 import locationRouter from '../modules/location/location.route.js';
 import orgRouter from '../modules/org/org.route.js';
+import platformRouter from '../modules/platform/platform.route.js';
 import paymentRouter from '../modules/payment/payment.route.js';
 import posRouter from '../modules/pos/pos.route.js';
 import { customerRouter, dealerRouter, supplierRouter } from '../modules/party/party.route.js';
@@ -64,6 +65,10 @@ export const allRoutes: RouteEntry[] = [
   // token — obtaining one is their purpose. The routes inside that do need a caller (`me`,
   // `logout`, `password`) carry `authenticate` themselves.
   { path: 'auth', route: authRouter, public: true },
+
+  // The platform-admin API (SaaS phase 5). `public` only exempts it from the *tenant* blanket guard
+  // — a platform token is not a tenant token. Every route in it carries `authenticatePlatform`.
+  { path: 'platform', route: platformRouter, public: true },
 
   { path: 'org', route: orgRouter },
   { path: 'locations', route: locationRouter },

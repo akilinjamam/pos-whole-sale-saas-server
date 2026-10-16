@@ -1,3 +1,4 @@
+import type { PlatformAdminDoc } from '../modules/platform/platformAdmin.model.js';
 import type { OrgAccess } from '../services/subscription.service.js';
 import type { AuthUser } from '@shared/types.js';
 
@@ -18,6 +19,8 @@ declare global {
       user?: AuthUser;
       /** The business's plan and subscription state, set by `authenticate` (SaaS phase 4). */
       subscription?: OrgAccess;
+      /** The signed-in platform admin, set by `authenticatePlatform` (SaaS phase 5). */
+      platformAdmin?: PlatformAdminDoc;
     }
   }
 }

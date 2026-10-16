@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addMonths,
   hasRoomFor,
+  paymentPeriod,
   planHasFeature,
   planLimit,
   subscriptionState,
@@ -122,5 +124,35 @@ describe('plan rules', () => {
     expect(hasRoomFor(starter, 'users', 2)).toBe(true);
     expect(hasRoomFor(starter, 'users', 3)).toBe(false);
     expect(hasRoomFor(starter, 'products', 1_000_000)).toBe(true);
+  });
+});
+
+describe('addMonths', () => {
+  it('adds calendar months in UTC', () => {
+    expect(addMonths(new Date('2026-10-17T06:00:00Z'), 1).toISOString()).toBe('2026-11-17T06:00:00.000Z');
+    expect(addMonths(new Date('2026-10-17T06:00:00Z'), 12).toISOString()).toBe('2027-10-17T06:00:00.000Z');
+  });
+
+  it('clamps to the end of a shorter month', () => {
+    expect(addMonths(new Date('2027-01-31T00:00:00Z'), 1).toISOString()).toBe('2027-02-28T00:00:00.000Z');
+    expect(addMonths(new Date('2028-01-31T00:00:00Z'), 1).toISOString()).toBe('2028-02-29T00:00:00.000Z');
+  });
+});
+
+describe('paymentPeriod', () => {
+  it('starts now for a business whose time has run out', () => {
+    const p = paymentPeriod({ status: 'ACTIVE', trialEndsAt: null, currentPeriodEndsAt: at(-10) }, now, 1);
+    expect(p.start.toISOString()).toBe(now.toISOString());
+    expect(p.end.toISOString()).toBe('2026-11-17T06:00:00.000Z');
+  });
+
+  it('extends from the end of a period still running — paying early loses nothing', () => {
+    const p = paymentPeriod({ status: 'ACTIVE', trialEndsAt: null, currentPeriodEndsAt: at(5) }, now, 1);
+    expect(p.start.toISOString()).toBe(at(5).toISOString());
+  });
+
+  it('keeps the unused trial days', () => {
+    const p = paymentPeriod({ status: 'TRIAL', trialEndsAt: at(4), currentPeriodEndsAt: null }, now, 3);
+    expect(p.start.toISOString()).toBe(at(4).toISOString());
   });
 });

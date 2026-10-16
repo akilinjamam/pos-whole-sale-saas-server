@@ -137,8 +137,12 @@ interface Endpoint {
   key: string;
 }
 
+/**
+ * Tenant routes only. `/platform/*` does not accept a tenant token at all (a separate secret and
+ * audience); `platform.int.test.ts` proves that, and what a platform admin may do.
+ */
 function endpoints(): Endpoint[] {
-  return allRoutes.flatMap(({ path, route }) =>
+  return allRoutes.filter(({ path }) => path !== 'platform').flatMap(({ path, route }) =>
     (route as Router & { stack: Layer[] }).stack.flatMap((layer) => {
       if (!layer.route) return [];
       const sub = layer.route.path === '/' ? '' : layer.route.path;

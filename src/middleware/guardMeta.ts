@@ -1,4 +1,5 @@
 import type { Permission } from '@shared/permissions.js';
+import type { PlatformPermission } from '@shared/platform.js';
 import type { RequestHandler } from 'express';
 
 /**
@@ -56,4 +57,42 @@ export function isAuthenticateGuard(handler: unknown): boolean {
 export function permissionsOf(handler: unknown): readonly Permission[] | null {
   if (typeof handler !== 'function' || !(REQUIRED_PERMISSIONS in handler)) return null;
   return (handler as PermissionGuard)[REQUIRED_PERMISSIONS];
+}
+
+// ─── Platform guards (SaaS phase 5) ─────────────────────────────────────────────────────
+//
+// Their own markers, not the tenant ones: a platform route guarded by a tenant `authenticate`
+// — or a tenant route by `authenticatePlatform` — must fail the coverage test, not pass it.
+
+export const IS_PLATFORM_AUTHENTICATE = Symbol.for('pos.guard.platformAuthenticate');
+export const REQUIRED_PLATFORM_PERMISSIONS = Symbol.for(
+  'pos.guard.requiredPlatformPermissions',
+);
+
+export function markPlatformAuthenticate(handler: RequestHandler): RequestHandler {
+  return Object.defineProperty(handler, IS_PLATFORM_AUTHENTICATE, {
+    value: true,
+    enumerable: false,
+  });
+}
+
+export function markPlatformPermissions(
+  handler: RequestHandler,
+  permissions: readonly PlatformPermission[],
+): RequestHandler {
+  return Object.defineProperty(handler, REQUIRED_PLATFORM_PERMISSIONS, {
+    value: permissions,
+    enumerable: false,
+  });
+}
+
+export function isPlatformAuthenticateGuard(handler: unknown): boolean {
+  return typeof handler === 'function' && IS_PLATFORM_AUTHENTICATE in handler;
+}
+
+export function platformPermissionsOf(handler: unknown): readonly PlatformPermission[] | null {
+  if (typeof handler !== 'function' || !(REQUIRED_PLATFORM_PERMISSIONS in handler)) return null;
+  return (handler as unknown as Record<symbol, readonly PlatformPermission[]>)[
+    REQUIRED_PLATFORM_PERMISSIONS
+  ]!;
 }

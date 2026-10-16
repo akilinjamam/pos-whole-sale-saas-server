@@ -25,6 +25,17 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   JWT_REFRESH_TTL: z.string().regex(durationPattern, 'e.g. 30d').default('30d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
+  /**
+   * Signs platform-admin tokens (SaaS phase 5) — a third secret, so a business's token can never be
+   * presented to a platform route, nor the reverse. Optional in development: without it the
+   * platform routes answer 503. Required in production (below).
+   */
+  JWT_PLATFORM_SECRET: z
+    .string()
+    .min(32, 'JWT_PLATFORM_SECRET must be at least 32 characters')
+    .optional(),
+  /** Platform sessions do not refresh; an admin signs in again after this. */
+  JWT_PLATFORM_TTL: z.string().regex(durationPattern, 'e.g. 8h').default('8h'),
 
   CORS_ORIGINS: z.string().default('http://localhost:5175'),
   /**
@@ -117,6 +128,18 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
+if (raw.NODE_ENV === 'production' && !raw.JWT_PLATFORM_SECRET) {
+  console.error('\nJWT_PLATFORM_SECRET is required in production — it signs platform-admin sessions.\n');
+  process.exit(1);
+}
+if (
+  raw.JWT_PLATFORM_SECRET &&
+  [raw.JWT_ACCESS_SECRET, raw.JWT_REFRESH_SECRET].includes(raw.JWT_PLATFORM_SECRET)
+) {
+  console.error('\nJWT_PLATFORM_SECRET must differ from the access and refresh secrets.\n');
+  process.exit(1);
+}
+
 if (raw.NODE_ENV === 'production' && !raw.SMTP_HOST) {
   console.error('\nSMTP_HOST is required in production — signup and password reset send email.\n');
   process.exit(1);
@@ -143,6 +166,8 @@ export const config = Object.freeze({
     accessTtl: raw.JWT_ACCESS_TTL,
     refreshSecret: raw.JWT_REFRESH_SECRET,
     refreshTtl: raw.JWT_REFRESH_TTL,
+    platformSecret: raw.JWT_PLATFORM_SECRET ?? null,
+    platformTtl: raw.JWT_PLATFORM_TTL,
   },
 
   bcryptRounds: raw.BCRYPT_ROUNDS,

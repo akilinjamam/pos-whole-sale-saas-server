@@ -1,4 +1,9 @@
-import type { LimitedResource, OrgStatus, PlanFeature, SubscriptionAccess } from '@shared/enums.js';
+import type {
+  LimitedResource,
+  OrgStatus,
+  PlanFeature,
+  SubscriptionAccess,
+} from '@shared/enums.js';
 
 /**
  * Subscription rules that need no database — SaaS phase 4.
@@ -45,7 +50,13 @@ export function subscriptionState(
   graceDays: number,
 ): SubscriptionState {
   if (org.status === 'SUSPENDED' || org.status === 'CANCELLED') {
-    return { status: org.status, access: 'BLOCKED', dueSince: null, graceEndsAt: null, daysLeft: null };
+    return {
+      status: org.status,
+      access: 'BLOCKED',
+      dueSince: null,
+      graceEndsAt: null,
+      daysLeft: null,
+    };
   }
 
   // The date this subscription runs until. A trial runs to its trial end; anything else to the
@@ -57,8 +68,20 @@ export function subscriptionState(
   if (!endsAt) {
     // Open-ended. PAST_DUE with no date at all is a platform admin's call — treat it as overdue.
     return org.status === 'PAST_DUE'
-      ? { status: 'PAST_DUE', access: 'READ_ONLY', dueSince: null, graceEndsAt: null, daysLeft: 0 }
-      : { status: org.status, access: 'FULL', dueSince: null, graceEndsAt: null, daysLeft: null };
+      ? {
+          status: 'PAST_DUE',
+          access: 'READ_ONLY',
+          dueSince: null,
+          graceEndsAt: null,
+          daysLeft: 0,
+        }
+      : {
+          status: org.status,
+          access: 'FULL',
+          dueSince: null,
+          graceEndsAt: null,
+          daysLeft: null,
+        };
   }
 
   if (endsAt.getTime() > now.getTime() && org.status !== 'PAST_DUE') {
@@ -101,7 +124,51 @@ export function planLimit(plan: PlanRules | null, resource: LimitedResource): nu
 }
 
 /** Whether one more of `resource` fits, given how many are in use now. */
-export function hasRoomFor(plan: PlanRules | null, resource: LimitedResource, used: number): boolean {
+export function hasRoomFor(
+  plan: PlanRules | null,
+  resource: LimitedResource,
+  used: number,
+): boolean {
   const limit = planLimit(plan, resource);
   return limit === null || used < limit;
+}
+
+// ─── Payments (SaaS phase 5) ────────────────────────────────────────────────────────────
+
+/**
+ * `date` plus whole calendar months, in UTC. A day past the end of the target month is clamped to
+ * its last day — 31 January + 1 month is 28 (or 29) February, not 3 March.
+ */
+export function addMonths(date: Date, months: number): Date {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(
+    Date.UTC(
+      y,
+      m,
+      Math.min(date.getUTCDate(), lastDay),
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds(),
+    ),
+  );
+}
+
+/**
+ * The period a payment of `months` buys. It starts where the business's paid time — or unused
+ * trial — runs out, if that is still ahead; otherwise now. Paying early never loses days, and
+ * paying late does not back-date the new period over time the business was not paying for.
+ */
+export function paymentPeriod(
+  org: SubscriptionDates,
+  now: Date,
+  months: number,
+): { start: Date; end: Date } {
+  const ahead = [org.currentPeriodEndsAt, org.status === 'TRIAL' ? org.trialEndsAt : null]
+    .filter((d): d is Date => d !== null && d.getTime() > now.getTime())
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const start = ahead ?? now;
+  return { start, end: addMonths(start, months) };
 }

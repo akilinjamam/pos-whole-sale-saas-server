@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { isAuthenticateGuard, permissionsOf } from '../src/middleware/guardMeta.js';
+import {
+  isAuthenticateGuard,
+  isPlatformAuthenticateGuard,
+  permissionsOf,
+  platformPermissionsOf,
+} from '../src/middleware/guardMeta.js';
 import { allRoutes } from '../src/routes/index.js';
 import { ALL_PERMISSIONS } from '../src/shared/permissions.js';
+import { PLATFORM_PERMISSIONS } from '../src/shared/platform.js';
 
 import type { RequestHandler, Router } from 'express';
 
@@ -131,9 +137,27 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'payment:read, low stock → po:read, dispatch → order:read) — a cashier gets an empty one.',
 };
 
+/**
+ * Platform routes (SaaS phase 5) reachable with no platform token — the same argument as above.
+ */
+const PLATFORM_PUBLIC_ROUTES: Record<string, string> = {
+  'platform/auth/login': 'Obtaining a platform token is its purpose. Rate-limited per IP.',
+};
+
+/** Platform routes that act on the signed-in admin's own account, so carry no permission. */
+const PLATFORM_SELF_SERVICE_ROUTES: Record<string, string> = {
+  'platform/auth/me': "The admin's own identity and permissions.",
+  'platform/auth/logout': "Ends the admin's own sessions.",
+  'platform/auth/password': "Changes the admin's own password, re-checking the current one.",
+};
+
 // ─── The test ───────────────────────────────────────────────────────────────────────────
 
-const mounted = allRoutes.flatMap((entry) => collectRoutes(entry.path, entry.route));
+const everything = allRoutes.flatMap((entry) => collectRoutes(entry.path, entry.route));
+const isPlatform = (route: MountedRoute) => route.key === 'platform' || route.key.startsWith('platform/');
+/** Tenant routes — every assertion in the first block is about these. */
+const mounted = everything.filter((route) => !isPlatform(route));
+const platformRoutes = everything.filter(isPlatform);
 
 describe('route coverage', () => {
   it('finds routes to check (the walk itself works)', () => {
@@ -197,5 +221,56 @@ describe('route coverage', () => {
     );
 
     expect(stale, `Exempted paths that are not mounted: ${stale.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('platform route coverage (SaaS phase 5)', () => {
+  it('finds platform routes to check', () => {
+    expect(platformRoutes.length).toBeGreaterThan(10);
+  });
+
+  it('every platform route has authenticatePlatform unless listed as public', () => {
+    const offenders = platformRoutes
+      .filter((route) => !(route.key in PLATFORM_PUBLIC_ROUTES))
+      .filter((route) => !route.handlers.some(isPlatformAuthenticateGuard))
+      .map((route) => route.signature);
+    expect(offenders, `No authenticatePlatform:\n  ${offenders.join('\n  ')}`).toEqual([]);
+  });
+
+  it('every authenticated platform route gates on a platform permission unless self-service', () => {
+    const exempt = { ...PLATFORM_PUBLIC_ROUTES, ...PLATFORM_SELF_SERVICE_ROUTES };
+    const offenders = platformRoutes
+      .filter((route) => !(route.key in exempt))
+      .filter((route) => !route.handlers.some((h) => platformPermissionsOf(h) !== null))
+      .map((route) => route.signature);
+    expect(offenders, `No requirePlatformPermission:\n  ${offenders.join('\n  ')}`).toEqual([]);
+  });
+
+  it('platform and tenant guards never cross over', () => {
+    const crossed = [
+      ...platformRoutes
+        .filter((r) => r.handlers.some((h) => isAuthenticateGuard(h) || permissionsOf(h) !== null))
+        .map((r) => `${r.signature} carries a tenant guard`),
+      ...mounted
+        .filter((r) => r.handlers.some((h) => isPlatformAuthenticateGuard(h) || platformPermissionsOf(h) !== null))
+        .map((r) => `${r.signature} carries a platform guard`),
+    ];
+    expect(crossed).toEqual([]);
+  });
+
+  it('every gated platform permission exists in the platform catalog', () => {
+    const known = new Set<string>(PLATFORM_PERMISSIONS);
+    const unknown = platformRoutes.flatMap((r) =>
+      r.handlers.flatMap((h) => (platformPermissionsOf(h) ?? []).filter((p) => !known.has(p))),
+    );
+    expect(unknown).toEqual([]);
+  });
+
+  it('platform exemption lists contain no stale entries', () => {
+    const keys = new Set(platformRoutes.map((route) => route.key));
+    const stale = [...Object.keys(PLATFORM_PUBLIC_ROUTES), ...Object.keys(PLATFORM_SELF_SERVICE_ROUTES)].filter(
+      (key) => !keys.has(key),
+    );
+    expect(stale).toEqual([]);
   });
 });

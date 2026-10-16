@@ -22,6 +22,8 @@ npm ci
 cp .env.example .env   # then fill it in — see the table below
 npm run build          # tsc + tsc-alias → dist/
 npm run seed           # first deploy only: roles, the OWNER account, default price tiers
+# The first platform admin (SaaS phase 5). Prints a temporary password once; change it at first sign-in.
+npm run platform:create-admin -- --email you@example.com --name "Your Name"
 npx tsx scripts/index-review.ts --sync   # builds every index, reports any query that would scan
 pm2 start dist/index.js --name pos-wholesale-saas-api
 pm2 save
