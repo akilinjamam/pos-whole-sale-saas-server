@@ -2,6 +2,9 @@ import { Schema, model } from 'mongoose';
 
 import { baseSchemaPlugin } from '../../lib/model.js';
 
+import { ORG_STATUSES, SIGNUP_SOURCES } from '../../shared/enums.js';
+
+import type { OrgStatus, SignupSource } from '@shared/enums.js';
 import type { OrgPayload } from '@shared/types.js';
 import type { HydratedDocument, Model, Types } from 'mongoose';
 
@@ -20,8 +23,11 @@ export interface OrgSettingsDoc {
 }
 
 /**
- * The tenant. V1 runs a single org, but every other collection carries `orgId` from day one —
- * §6.1 — because retrofitting tenancy is a rewrite and one indexed field is not a cost.
+ * The tenant. Every other collection carries `orgId` (§6.1), which is what lets one database
+ * hold many businesses. New ones are created only by `services/provisioning.service.ts`.
+ *
+ * The subscription fields (`status`, `planCode`, `trialEndsAt`, `currentPeriodEndsAt`) are
+ * recorded from SaaS phase 1 and enforced from phase 4.
  *
  * `settings` is where the business rules that have to be changeable without a deploy live.
  * Each flag is read at the exact point it decides something:
@@ -49,6 +55,14 @@ export interface OrgDoc {
   timeZone: string;
   fiscalYearStartMonth: number;
   settings: OrgSettingsDoc;
+  /** Platform-unique, URL-safe. Null only on an org that predates SaaS phase 1. */
+  slug: string | null;
+  status: OrgStatus;
+  planCode: string | null;
+  trialEndsAt: Date | null;
+  currentPeriodEndsAt: Date | null;
+  ownerUserId: Types.ObjectId | null;
+  signupSource: SignupSource;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   createdAt: Date;
@@ -84,11 +98,26 @@ const orgSchema = new Schema<OrgDoc>({
   timeZone: { type: String, default: 'Asia/Dhaka' },
   fiscalYearStartMonth: { type: Number, default: 7, min: 1, max: 12 },
   settings: { type: settingsSchema, default: () => ({}) },
+  slug: { type: String, trim: true, lowercase: true, default: null },
+  // ACTIVE by default so an org written outside provisioning (a test fixture, a restore) is
+  // usable; provisioning sets TRIAL explicitly for a signup.
+  status: { type: String, enum: ORG_STATUSES, default: 'ACTIVE', index: true },
+  planCode: { type: String, trim: true, uppercase: true, default: null },
+  trialEndsAt: { type: Date, default: null },
+  currentPeriodEndsAt: { type: Date, default: null },
+  ownerUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  signupSource: { type: String, enum: SIGNUP_SOURCES, default: 'SEED' },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 });
 
 orgSchema.plugin(baseSchemaPlugin);
+
+// Partial, so the null slugs of pre-SaaS orgs and test fixtures do not collide with each other.
+orgSchema.index(
+  { slug: 1 },
+  { unique: true, partialFilterExpression: { slug: { $type: 'string' } }, name: 'org_slug_unique' },
+);
 
 export type OrgDocument = HydratedDocument<OrgDoc>;
 export type OrgModel = Model<OrgDoc>;
@@ -123,5 +152,10 @@ export function toOrgPayload(doc: OrgDoc): OrgPayload {
       roundInvoiceTo: doc.settings.roundInvoiceTo,
       defaultPaymentTermsDays: doc.settings.defaultPaymentTermsDays,
     },
+    slug: doc.slug ?? null,
+    status: doc.status ?? 'ACTIVE',
+    planCode: doc.planCode ?? null,
+    trialEndsAt: doc.trialEndsAt ? doc.trialEndsAt.toISOString() : null,
+    currentPeriodEndsAt: doc.currentPeriodEndsAt ? doc.currentPeriodEndsAt.toISOString() : null,
   };
 }

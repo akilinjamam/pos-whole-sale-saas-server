@@ -79,7 +79,10 @@ const userSchema = new Schema<UserDoc, UserModel, UserMethods>({
 
 userSchema.plugin(baseSchemaPlugin);
 
-userSchema.index({ orgId: 1, email: 1 }, { unique: true });
+// Unique across the platform, not per org (SaaS phase 1): login is email + password with no
+// business code, so an email has to identify exactly one user. The seed drops the old
+// `orgId_1_email_1` index when it migrates a database.
+userSchema.index({ email: 1 }, { unique: true });
 
 /**
  * Hash on the way in, always.

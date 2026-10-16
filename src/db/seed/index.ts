@@ -1,166 +1,170 @@
 import { connectDatabase, disconnectDatabase } from '../../config/db.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
-import { Location } from '../../modules/location/location.model.js';
+import { withTransaction } from '../../lib/withTransaction.js';
 import { Org } from '../../modules/org/org.model.js';
-import { PriceTier } from '../../modules/priceTier/priceTier.model.js';
-import { Role } from '../../modules/role/role.model.js';
 import { User } from '../../modules/user/user.model.js';
-
-import { SYSTEM_ROLES } from './roles.js';
+import {
+  provisionOrg,
+  syncSystemRoles,
+  uniqueSlug,
+} from '../../services/provisioning.service.js';
 
 import type { Types } from 'mongoose';
 
 /**
- * Bring an empty database to a state the system can be logged into.
- *
- * **Idempotent by design.** Every step upserts on a natural key, so running it again after a
- * permission is added to the catalog updates the system roles in place rather than duplicating
- * them or failing on a unique index. That matters because the catalog grows on almost every
- * day of the plan, and re-seeding is how those additions reach the OWNER role.
- *
- * What it will not do is overwrite an existing admin's password — see below.
+ * Bring the database to a state the system can be logged into, and keep every business in step
+ * with the code.
  *
  *   npm run seed
+ *
+ * **Idempotent by design**, and run on every deploy (docs/DEPLOY.md):
+ *
+ *  1. Moves the users collection to platform-unique emails (SaaS phase 1), refusing — with the
+ *     clashing addresses listed — if two users already share one.
+ *  2. Provisions the first business and its owner from `SEED_ADMIN_*`, only on an empty database.
+ *     New businesses after that come from signup or the platform admin, never from here.
+ *  3. For **every** business: backfills a missing slug, and re-syncs the system roles so new
+ *     permissions in the catalog reach each OWNER.
+ *  4. In development only, demo users for the first business.
+ *
+ * It never overwrites a password and never re-creates a location or price tier a business has
+ * changed — those are written only when a business is provisioned.
  */
 
 const ADMIN_EMAIL_FALLBACK = 'admin@optical.local';
 const ADMIN_PASSWORD_FALLBACK = 'ChangeMe123!';
 
-async function seedOrg(): Promise<Types.ObjectId> {
-  // V1 is single-tenant, so "the org" is simply the first one; creating a second would make
-  // every subsequent step ambiguous.
-  const existing = await Org.findOne().sort({ createdAt: 1 });
-  if (existing) {
-    logger.info({ org: existing.name }, 'Org already present — leaving it alone');
-    return existing._id;
-  }
+/** The index that made email unique per org only; replaced by a platform-wide `email_1`. */
+const LEGACY_EMAIL_INDEX = 'orgId_1_email_1';
 
-  const org = await Org.create({
-    name: 'Optical Wholesale',
-    legalName: null,
-    currency: config.locale.currency,
-    timeZone: config.locale.timezone,
-    fiscalYearStartMonth: 7,
-  });
-
-  logger.info({ org: org.name }, 'Org created');
-  return org._id;
-}
-
-async function seedRoles(orgId: Types.ObjectId): Promise<Map<string, Types.ObjectId>> {
-  const byCode = new Map<string, Types.ObjectId>();
-
-  for (const seed of SYSTEM_ROLES) {
-    // `permissions` is overwritten on every run: system roles track the catalog, and a role
-    // that silently kept a stale set would be the exact drift this seed exists to prevent.
-    // Deliberate local edits belong in a *custom* role, which the seed never touches.
-    const role = await Role.findOneAndUpdate(
-      { orgId, code: seed.code },
-      {
-        $set: {
-          name: seed.name,
-          description: seed.description,
-          permissions: [...seed.permissions],
-          isSystem: true,
-        },
-        $setOnInsert: { orgId, code: seed.code },
-      },
-      { new: true, upsert: true },
+async function migrateUserEmailIndex(): Promise<void> {
+  const clashes = await User.aggregate<{ _id: string; count: number }>([
+    { $group: { _id: '$email', count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+  ]);
+  if (clashes.length > 0) {
+    logger.fatal(
+      { emails: clashes.map((c) => `${c._id} ×${c.count}`) },
+      'These emails belong to more than one user. Emails must be unique across the platform — change them, then re-run the seed.',
     );
-
-    byCode.set(seed.code, role._id);
+    throw new Error('Duplicate user emails');
   }
 
-  logger.info({ count: SYSTEM_ROLES.length }, 'System roles seeded');
-  return byCode;
-}
+  await User.createIndexes();
 
-async function seedLocations(orgId: Types.ObjectId): Promise<Types.ObjectId[]> {
-  const seeds = [
-    {
-      code: 'MAIN',
-      name: 'Main Warehouse',
-      type: 'WAREHOUSE' as const,
-      allowsSales: true,
-      allowsPurchase: true,
-      sortOrder: 1,
-    },
-    {
-      code: 'SHOP',
-      name: 'Shop Counter',
-      type: 'COUNTER' as const,
-      allowsSales: true,
-      allowsPurchase: false,
-      sortOrder: 2,
-    },
-  ];
-
-  const ids: Types.ObjectId[] = [];
-  for (const seed of seeds) {
-    // Only `$setOnInsert` for the mutable fields: a warehouse renamed by the client must
-    // survive the next seed run.
-    const location = await Location.findOneAndUpdate(
-      { orgId, code: seed.code },
-      { $setOnInsert: { ...seed, orgId } },
-      { new: true, upsert: true },
-    );
-    ids.push(location._id);
+  const existing = await User.collection.indexes();
+  if (existing.some((index) => index.name === LEGACY_EMAIL_INDEX)) {
+    await User.collection.dropIndex(LEGACY_EMAIL_INDEX);
+    logger.info({ index: LEGACY_EMAIL_INDEX }, 'Dropped the per-org email index');
   }
-
-  logger.info({ codes: seeds.map((s) => s.code) }, 'Locations seeded');
-  return ids;
 }
 
-async function seedAdmin(orgId: Types.ObjectId, ownerRoleId: Types.ObjectId): Promise<void> {
-  const email = (config.seed.adminEmail ?? ADMIN_EMAIL_FALLBACK).toLowerCase();
-  const password = config.seed.adminPassword ?? ADMIN_PASSWORD_FALLBACK;
-
-  const existing = await User.findOne({ orgId, email });
-  if (existing) {
-    // Never re-set the password. Re-seeding to pick up new permissions is routine; silently
-    // resetting the owner's credentials to the value in `.env` while doing so is not.
-    logger.info({ email }, 'Admin user already present — password left unchanged');
+async function seedFirstOrg(): Promise<void> {
+  if (await Org.exists({})) {
+    logger.info('Businesses already present — not provisioning a new one');
     return;
   }
 
-  const user = new User({
-    orgId,
-    name: 'Administrator',
-    email,
-    passwordHash: password, // hashed by the model's pre-save hook
-    roleIds: [ownerRoleId],
-    // Empty `locationIds` means unrestricted — see `requireLocation`.
-    locationIds: [],
-    defaultLocationId: null,
-    isActive: true,
-    mustChangePassword: !config.seed.adminPassword,
-  });
-  await user.save();
+  const email = (config.seed.adminEmail ?? ADMIN_EMAIL_FALLBACK).toLowerCase();
+  const password = config.seed.adminPassword ?? ADMIN_PASSWORD_FALLBACK;
 
-  logger.info({ email }, 'Admin user created');
+  const created = await withTransaction((session) =>
+    provisionOrg(
+      {
+        business: { name: 'Optical Wholesale' },
+        owner: {
+          name: 'Administrator',
+          email,
+          password,
+          mustChangePassword: !config.seed.adminPassword,
+        },
+        status: 'ACTIVE',
+        signupSource: 'SEED',
+      },
+      session,
+    ),
+  );
+
+  logger.info({ slug: created.slug, email }, 'First business and its owner created');
 
   if (!config.seed.adminPassword) {
     logger.warn(
       { email, password: ADMIN_PASSWORD_FALLBACK },
-      'Seeded the admin with the DEFAULT password and mustChangePassword — set SEED_ADMIN_PASSWORD in .env to choose your own',
+      'Seeded the owner with the DEFAULT password and mustChangePassword — set SEED_ADMIN_PASSWORD in .env to choose your own',
     );
   }
 }
 
 /**
- * One account per system role, so the difference between them can be seen rather than
- * described. Opt-in (`SEED_DEMO_USERS=true`) and refused in production — see `config.seed`.
+ * Backfill and role sync, for every business on the platform.
+ *
+ * An org created before SaaS phase 1 has none of the subscription fields on disk. Mongoose fills
+ * the defaults when it hydrates a document, but a *query* such as `{ status: 'ACTIVE' }` would
+ * still miss it — so they are written for real.
+ */
+async function syncAllOrgs(): Promise<void> {
+  const orgs = await Org.find()
+    .select('name slug ownerUserId')
+    .sort({ createdAt: 1 })
+    .lean();
+
+  for (const org of orgs) {
+    const set: Record<string, unknown> = {};
+
+    if (!org.slug) set.slug = await uniqueSlug(org.name);
+
+    if (!org.ownerUserId) {
+      const roleIds = await syncSystemRoles(org._id);
+      const owner = await User.findOne({ orgId: org._id, roleIds: roleIds.get('OWNER') })
+        .sort({ createdAt: 1 })
+        .select('_id')
+        .lean();
+      if (owner) set.ownerUserId = owner._id;
+    }
+
+    if (Object.keys(set).length > 0) {
+      await Org.updateOne({ _id: org._id }, { $set: set });
+      logger.info({ org: org.name, ...set }, 'Business backfilled');
+    }
+
+    await syncSystemRoles(org._id);
+  }
+
+  const legacy = await Org.updateMany(
+    { status: { $exists: false } },
+    {
+      $set: {
+        status: 'ACTIVE',
+        signupSource: 'SEED',
+        planCode: null,
+        trialEndsAt: null,
+        currentPeriodEndsAt: null,
+      },
+    },
+  );
+  if (legacy.modifiedCount > 0) {
+    logger.info({ count: legacy.modifiedCount }, 'Subscription fields backfilled as ACTIVE');
+  }
+
+  logger.info({ businesses: orgs.length }, 'System roles synced for every business');
+}
+
+/**
+ * One account per system role in the first business, so the difference between them can be seen
+ * rather than described. Opt-in (`SEED_DEMO_USERS=true`) and refused in production — see
+ * `config.seed`.
  *
  * `locationIds` is empty on all of them: the point of these accounts is to demonstrate the
  * *permission* split, and restricting locations as well would make a missing screen ambiguous
  * between "this role cannot" and "this user's warehouse cannot".
  */
-async function seedDemoUsers(
-  orgId: Types.ObjectId,
-  roleIds: Map<string, Types.ObjectId>,
-): Promise<void> {
+async function seedDemoUsers(): Promise<void> {
   if (!config.seed.demoUsers) return;
+
+  const first = await Org.findOne().sort({ createdAt: 1 }).select('_id').lean();
+  if (!first) return;
+  const roleIds = await syncSystemRoles(first._id);
 
   const demos = [
     { code: 'SALES_MANAGER', email: 'salesmanager@optical.local', name: 'Demo Sales Manager' },
@@ -173,14 +177,14 @@ async function seedDemoUsers(
   const created: string[] = [];
 
   for (const demo of demos) {
-    const roleId = roleIds.get(demo.code);
+    const roleId: Types.ObjectId | undefined = roleIds.get(demo.code);
     if (!roleId) continue;
 
-    // Same rule as the admin: an existing account's password is never rewritten by a re-seed.
-    if (await User.exists({ orgId, email: demo.email })) continue;
+    // Emails are platform-wide, so check everywhere — and never rewrite an existing password.
+    if (await User.exists({ email: demo.email })) continue;
 
     const user = new User({
-      orgId,
+      orgId: first._id,
       name: demo.name,
       email: demo.email,
       passwordHash: config.seed.demoPassword, // hashed by the model's pre-save hook
@@ -202,59 +206,13 @@ async function seedDemoUsers(
   }
 }
 
-/**
- * The four tiers of §6.6, and RETAIL as the counter's default.
- *
- * `$setOnInsert` only: a tier the client renamed or reordered must survive the next seed run,
- * exactly as a location does. The default-retail setting is written only while it is still
- * unset, so a client who pointed the counter at another tier keeps that choice.
- */
-async function seedPriceTiers(orgId: Types.ObjectId): Promise<void> {
-  const seeds = [
-    {
-      code: 'RETAIL',
-      name: 'Retail (MRP)',
-      level: 0,
-      description: 'Counter and walk-in prices.',
-    },
-    { code: 'DEALER_A', name: 'Dealer A', level: 10, description: null },
-    { code: 'DEALER_B', name: 'Dealer B', level: 20, description: null },
-    { code: 'DISTRIBUTOR', name: 'Distributor', level: 30, description: null },
-  ];
-
-  let retailId: Types.ObjectId | null = null;
-  for (const seed of seeds) {
-    const tier = await PriceTier.findOneAndUpdate(
-      { orgId, code: seed.code },
-      { $setOnInsert: { ...seed, orgId, isActive: true } },
-      { new: true, upsert: true },
-    );
-    if (seed.code === 'RETAIL') retailId = tier._id;
-  }
-
-  if (retailId) {
-    await Org.updateOne(
-      { _id: orgId, 'settings.defaultRetailTierId': null },
-      { $set: { 'settings.defaultRetailTierId': retailId } },
-    );
-  }
-
-  logger.info({ codes: seeds.map((s) => s.code) }, 'Price tiers seeded');
-}
-
 async function main(): Promise<void> {
   await connectDatabase();
 
-  const orgId = await seedOrg();
-  const roleIds = await seedRoles(orgId);
-  await seedLocations(orgId);
-  await seedPriceTiers(orgId);
-
-  const ownerRoleId = roleIds.get('OWNER');
-  if (!ownerRoleId)
-    throw new Error('OWNER role missing after seeding — cannot create the admin');
-  await seedAdmin(orgId, ownerRoleId);
-  await seedDemoUsers(orgId, roleIds);
+  await migrateUserEmailIndex();
+  await seedFirstOrg();
+  await syncAllOrgs();
+  await seedDemoUsers();
 
   logger.info('Seed complete');
   await disconnectDatabase();

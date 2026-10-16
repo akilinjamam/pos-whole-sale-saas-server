@@ -12,10 +12,10 @@ const durationPattern = /^\d+[smhd]$/;
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(5100),
+  PORT: z.coerce.number().int().positive().default(5101),
 
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
-  MONGODB_DB_NAME: z.string().min(1).default('pos_wholesale'),
+  MONGODB_DB_NAME: z.string().min(1).default('pos_wholesale_saas'),
 
   APP_TIMEZONE: z.string().min(1).default('Asia/Dhaka'),
   DEFAULT_CURRENCY: z.string().length(3).default('BDT'),
@@ -26,7 +26,7 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.string().regex(durationPattern, 'e.g. 30d').default('30d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
 
-  CORS_ORIGINS: z.string().default('http://localhost:5174'),
+  CORS_ORIGINS: z.string().default('http://localhost:5175'),
   /**
    * SameSite on the refresh-token cookie. `lax` only works when client and API share a site
    * (app.example.com + api.example.com). When they don't — a Netlify client calling an

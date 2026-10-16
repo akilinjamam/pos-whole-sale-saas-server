@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { ApiError } from '../../lib/ApiError.js';
 import { paginate } from '../../lib/paginate.js';
 import { resolveAccess, resolveAccessMany } from '../../services/identity.service.js';
+import { assertEmailAvailable } from '../../services/provisioning.service.js';
 import { Location } from '../location/location.model.js';
 import { Role } from '../role/role.model.js';
 
@@ -99,6 +100,8 @@ export async function createUser(
   actorId: Types.ObjectId,
 ): Promise<UserPayload> {
   await assertReferencesExist(orgId, input.roleIds, input.locationIds);
+  // Platform-wide, not per org: login finds the business by the email alone.
+  await assertEmailAvailable(input.email);
 
   const { password, ...rest } = input;
 
@@ -141,6 +144,7 @@ export async function updateUser(
   actorId: Types.ObjectId,
 ): Promise<UserPayload> {
   await assertReferencesExist(orgId, input.roleIds, input.locationIds);
+  if (input.email !== undefined) await assertEmailAvailable(input.email, { exceptUserId: id });
 
   const update: Record<string, unknown> = { ...input, updatedBy: actorId };
 

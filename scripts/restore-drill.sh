@@ -2,19 +2,19 @@
 # Restore drill (Day 40) — see docs/BACKUP.md. Restores an archive into a SCRATCH database (never
 # the live one), then reconciles it: a backup is only proven by restoring it.
 #
-#   scripts/restore-drill.sh /var/backups/pos-wholesale/daily/pos_wholesale-....archive.gz
+#   scripts/restore-drill.sh /var/backups/pos-wholesale-saas/daily/pos_wholesale_saas-....archive.gz
 #
 # Settings:
-#   DRILL_URI        mongodb://localhost:27018/?directConnection=true   where to restore (a replica set)
-#   SOURCE_DB        pos_wholesale                                      the database inside the archive
+#   DRILL_URI        mongodb://localhost:27019/?directConnection=true   where to restore (a replica set)
+#   SOURCE_DB        pos_wholesale_saas                                      the database inside the archive
 #   DRILL_DB         restore_drill                                      the scratch database (dropped first)
-#   MONGORESTORE     mongorestore    e.g. "docker exec -i pos-wholesale-mongo mongorestore"
+#   MONGORESTORE     mongorestore    e.g. "docker exec -i pos-wholesale-saas-mongo mongorestore"
 #   MONGOSH          mongosh
 set -euo pipefail
 
 file="${1:?usage: restore-drill.sh <archive.gz>}"
-URI="${DRILL_URI:-mongodb://localhost:27018/?directConnection=true}"
-SRC="${SOURCE_DB:-pos_wholesale}"
+URI="${DRILL_URI:-mongodb://localhost:27019/?directConnection=true}"
+SRC="${SOURCE_DB:-pos_wholesale_saas}"
 DRILL="${DRILL_DB:-restore_drill}"
 MONGORESTORE="${MONGORESTORE:-mongorestore}"
 MONGOSH="${MONGOSH:-mongosh}"

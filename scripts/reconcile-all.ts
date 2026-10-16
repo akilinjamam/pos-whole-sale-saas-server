@@ -6,7 +6,7 @@
  *
  * Point it elsewhere with the environment — the restore drill runs it against a restored copy:
  *
- *   MONGODB_URI=mongodb://localhost:27018/?directConnection=true MONGODB_DB_NAME=restore_drill \
+ *   MONGODB_URI=mongodb://localhost:27019/?directConnection=true MONGODB_DB_NAME=restore_drill \
  *     npx tsx scripts/reconcile-all.ts
  *
  * Exits 1 on any drift, so it can gate a deploy or a cron alert.

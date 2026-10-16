@@ -6,20 +6,20 @@
 #
 # Settings (environment, with defaults):
 #   MONGODB_URI        required — the production connection string (a read-only backup user)
-#   MONGODB_DB_NAME    pos_wholesale
-#   BACKUP_DIR         /var/backups/pos-wholesale       local copies
-#   RCLONE_REMOTE      (empty = skip)                   off-box target, e.g. b2:pos-wholesale-backups
+#   MONGODB_DB_NAME    pos_wholesale_saas
+#   BACKUP_DIR         /var/backups/pos-wholesale-saas       local copies
+#   RCLONE_REMOTE      (empty = skip)                   off-box target, e.g. b2:pos-wholesale-saas-backups
 #   KEEP_DAILY         14                               local and remote daily copies, in days
 #   KEEP_WEEKLY_DAYS   56                               Sunday copies, 8 weeks
 #   KEEP_MONTHLY_DAYS  365                              1st-of-month copies, a year
-#   MONGODUMP          mongodump                        e.g. "docker exec -i pos-wholesale-mongo mongodump"
+#   MONGODUMP          mongodump                        e.g. "docker exec -i pos-wholesale-saas-mongo mongodump"
 #   CHECK_URI          (empty = skip)                   a server to dry-run the archive against
 #   MONGORESTORE       mongorestore                     used only for that check
 set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
-DB="${MONGODB_DB_NAME:-pos_wholesale}"
-DIR="${BACKUP_DIR:-/var/backups/pos-wholesale}"
+DB="${MONGODB_DB_NAME:-pos_wholesale_saas}"
+DIR="${BACKUP_DIR:-/var/backups/pos-wholesale-saas}"
 REMOTE="${RCLONE_REMOTE:-}"
 KEEP_DAILY="${KEEP_DAILY:-14}"
 KEEP_WEEKLY_DAYS="${KEEP_WEEKLY_DAYS:-56}"

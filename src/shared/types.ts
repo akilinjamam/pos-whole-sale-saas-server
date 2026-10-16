@@ -10,6 +10,7 @@ import type {
   BaseUom,
   ErrorCode,
   LocationType,
+  OrgStatus,
   PackCode,
   PartyRole,
   ProductType,
@@ -205,6 +206,15 @@ export interface OrgPayload {
   timeZone: string;
   fiscalYearStartMonth: number;
   settings: OrgSettings;
+  /** URL-safe, platform-unique handle; null only for an org created before SaaS phase 1. */
+  slug: string | null;
+  status: OrgStatus;
+  /** The subscription plan; null until plans exist (SaaS phase 4). */
+  planCode: string | null;
+  /** ISO-8601. Set while `status` is TRIAL. */
+  trialEndsAt: string | null;
+  /** ISO-8601. The end of the period paid for. */
+  currentPeriodEndsAt: string | null;
 }
 
 export interface LocationPayload {

@@ -87,6 +87,19 @@ export type Gender = Member<typeof GENDERS>;
 export const PARTY_ROLES = ['DEALER', 'CUSTOMER', 'SUPPLIER'] as const;
 export type PartyRole = Member<typeof PARTY_ROLES>;
 
+// ─── Tenancy (SaaS phase 1) ─────────────────────────────────────────────────────────────
+
+/**
+ * Where a business stands with its subscription. Phase 1 only records it; phase 4 enforces it
+ * (`PAST_DUE` past the grace period → read-only, `SUSPENDED` / `CANCELLED` → refused).
+ */
+export const ORG_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'] as const;
+export type OrgStatus = Member<typeof ORG_STATUSES>;
+
+/** How a business came to exist: the seed script, the public signup page, or a platform admin. */
+export const SIGNUP_SOURCES = ['SEED', 'SIGNUP', 'PLATFORM'] as const;
+export type SignupSource = Member<typeof SIGNUP_SOURCES>;
+
 // ─── Locations ──────────────────────────────────────────────────────────────────────────
 
 export const LOCATION_TYPES = ['WAREHOUSE', 'COUNTER', 'TRANSIT', 'DAMAGE'] as const;
@@ -329,6 +342,8 @@ export const ERROR_CODES = [
   'TOKEN_EXPIRED',
   'INVALID_CREDENTIALS',
   'ACCOUNT_DISABLED',
+  // An email belongs to one user on the whole platform — login finds the business by it.
+  'EMAIL_TAKEN',
   'FORBIDDEN',
   'NOT_FOUND',
   'DUPLICATE_DOCUMENT',

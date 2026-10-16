@@ -3,34 +3,34 @@
 # Runs as a SINGLE-NODE REPLICA SET, which Mongoose transactions require. The whole
 # atomicity design (stock movements, ledger postings, document numbering) depends on it.
 #
-# Deliberately on port 27018 and its own named volume so it cannot disturb any other
+# Deliberately on port 27019 and its own named volume so it cannot disturb any other
 # MongoDB container already running on this machine (e.g. dynamodesk-mongo on 27017).
 #
-# The container listens on 27018 INTERNALLY as well as externally, so the replica-set
-# member address "localhost:27018" resolves correctly both inside the container (for the
+# The container listens on 27019 INTERNALLY as well as externally, so the replica-set
+# member address "localhost:27019" resolves correctly both inside the container (for the
 # node's own health checks) and from the host (for the driver).
 #
 #   docker compose up -d          (run from pos-whole-sale-server/)
-#   docker compose exec mongo mongosh --port 27018 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27018"}]})'
+#   docker compose exec mongo mongosh --port 27019 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27019"}]})'
 
-name: pos-wholesale
+name: pos-wholesale-saas
 
 services:
   mongo:
     image: mongo:7
-    container_name: pos-wholesale-mongo
+    container_name: pos-wholesale-saas-mongo
     restart: unless-stopped
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
     ports:
-      - "27018:27018"
+      - "27019:27019"
     volumes:
-      - pos-wholesale-mongo-data:/data/db
+      - pos-wholesale-saas-mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
 
 volumes:
-  pos-wholesale-mongo-data:
+  pos-wholesale-saas-mongo-data:

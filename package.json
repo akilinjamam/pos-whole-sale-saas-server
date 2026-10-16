@@ -22,8 +22,8 @@
     "verify": "npm run check:shared && npm run typecheck && npm run lint && npm test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:init": "docker compose exec mongo mongosh --port 27018 --eval 'rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27018\"}]})'",
-    "db:shell": "docker compose exec mongo mongosh --port 27018 pos_wholesale"
+    "db:init": "docker compose exec mongo mongosh --port 27019 --eval 'rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27019\"}]})'",
+    "db:shell": "docker compose exec mongo mongosh --port 27019 pos_wholesale_saas"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
