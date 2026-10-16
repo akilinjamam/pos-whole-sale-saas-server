@@ -10,7 +10,7 @@
  * This script is the guard. It compares every file byte for byte and exits non-zero on any
  * difference, so CI (and `npm run check:shared` before a commit) catches drift immediately.
  *
- * Run from pos-whole-sale-server/:
+ * Run from pos-whole-sale-saas-server/:
  *   npm run check:shared            # report differences
  *   npm run check:shared -- --sync  # copy server -> client (server is the source of truth)
  */
@@ -25,10 +25,10 @@ const workspace = join(here, '..');
 
 /** The server holds the canonical copy: it is where the contract is defined and enforced. */
 const SOURCE = join(here, 'src', 'shared');
-const TARGET = join(workspace, 'pos-whole-sale-client', 'src', 'shared');
+const TARGET = join(workspace, 'pos-whole-sale-saas-client', 'src', 'shared');
 
-const SOURCE_LABEL = 'pos-whole-sale-server/src/shared';
-const TARGET_LABEL = 'pos-whole-sale-client/src/shared';
+const SOURCE_LABEL = 'pos-whole-sale-saas-server/src/shared';
+const TARGET_LABEL = 'pos-whole-sale-saas-client/src/shared';
 
 const sync = process.argv.includes('--sync');
 
