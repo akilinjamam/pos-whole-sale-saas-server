@@ -300,3 +300,48 @@ export function weeklySummary(input: {
     ),
   };
 }
+
+// ─── Closing and exporting (SaaS phase 7) ──────────────────────────────────────────────
+
+/** To the owner, after they close the business. */
+export function accountClosed(input: OwnerMail & { purgeAfter: Date }): MailMessage {
+  const paragraphs = [
+    `Hello ${input.name},`,
+    `${input.businessName} has been closed on ${PRODUCT}, as you asked. Nobody in the business can use it any more.`,
+    `Your data is kept until ${dateText(input.purgeAfter)} and then deleted for good. Until then you can still sign in and download all of it (Download my data), and if you change your mind, reply to this email and we will reopen the account.`,
+  ];
+  return {
+    to: input.to,
+    subject: `${input.businessName} has been closed`,
+    text: text(paragraphs),
+    html: layout('Your account is closed', paragraphs),
+  };
+}
+
+/** To the platform admins, when an owner closes their own business. */
+export function businessClosedByOwner(input: {
+  to: string;
+  adminName: string;
+  orgId: string;
+  businessName: string;
+  ownerEmail: string;
+  reason: string | null;
+  purgeAfter: Date;
+}): MailMessage {
+  const action = {
+    label: 'Open the business',
+    url: `${config.saas.publicUrl}/platform/tenants/${encodeURIComponent(input.orgId)}`,
+  };
+  const paragraphs = [
+    `Hello ${input.adminName},`,
+    `${input.businessName} (${input.ownerEmail}) has closed its account.`,
+    ...(input.reason ? [`Their reason: ${input.reason}`] : []),
+    `Its data may be purged after ${dateText(input.purgeAfter)} (scripts/purge-org.ts). Reactivating it before then keeps everything.`,
+  ];
+  return {
+    to: input.to,
+    subject: `Closed: ${input.businessName}`,
+    text: text(paragraphs, action),
+    html: layout('A business has closed its account', paragraphs, action),
+  };
+}

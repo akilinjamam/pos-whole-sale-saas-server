@@ -62,3 +62,14 @@ export const planRequestSchema = z
   .strict();
 
 export type PlanRequestInput = z.infer<typeof planRequestSchema>;
+
+/** `POST /org/close` — the business name typed out, the owner's password, and why (optional). */
+export const closeOrgSchema = z
+  .object({
+    businessName: z.string().trim().min(1).max(120),
+    password: z.string().min(1).max(200),
+    reason: z.string().trim().max(500).nullable().optional(),
+  })
+  .strict();
+
+export type CloseOrgInput = z.infer<typeof closeOrgSchema>;

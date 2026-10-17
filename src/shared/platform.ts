@@ -75,6 +75,9 @@ export interface TenantSummaryPayload {
   createdAt: string;
   /** A plan the business has asked for, waiting for the platform to act. */
   planRequest: PlanRequestPayload | null;
+  /** Closed businesses: when the data may be deleted, and when it was (SaaS phase 7). */
+  purgeAfter: string | null;
+  purgedAt: string | null;
 }
 
 export interface SubscriptionPaymentPayload {

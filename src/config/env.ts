@@ -49,6 +49,8 @@ const envSchema = z.object({
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  /** Per business, across all its addresses, per window (SaaS phase 7). */
+  ORG_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1200),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('debug'),
   /**
    * Put the full header block back into the HTTP log — the one thing the trimmed serializers
@@ -78,6 +80,8 @@ const envSchema = z.object({
   TRIAL_PLAN_CODE: z.string().trim().toUpperCase().default('BUSINESS'),
   /** Days after a trial / paid period ends before the business becomes read-only. */
   GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
+  /** Days a closed business's data is kept before `scripts/purge-org.ts` may delete it (phase 7). */
+  PURGE_AFTER_DAYS: z.coerce.number().int().min(7).max(3650).default(90),
   /** How to pay, shown on the billing page — e.g. "bKash 01XXXXXXXXX (merchant), reference: your business name". */
   BILLING_INSTRUCTIONS: z.string().trim().optional(),
   /** Per IP, per 15 minutes, for each of signup / forgot-password / reset / verify. */
@@ -179,6 +183,7 @@ export const config = Object.freeze({
     cookieSameSite: raw.COOKIE_SAMESITE,
     rateLimitWindowMs: raw.RATE_LIMIT_WINDOW_MS,
     rateLimitMax: raw.RATE_LIMIT_MAX,
+    orgRateLimitMax: raw.ORG_RATE_LIMIT_MAX,
   },
 
   logLevel: raw.LOG_LEVEL,
@@ -190,6 +195,7 @@ export const config = Object.freeze({
     trialDays: raw.TRIAL_DAYS,
     trialPlanCode: raw.TRIAL_PLAN_CODE,
     graceDays: raw.GRACE_DAYS,
+    purgeAfterDays: raw.PURGE_AFTER_DAYS,
     billingInstructions: raw.BILLING_INSTRUCTIONS || null,
     authRateLimitMax: raw.AUTH_RATE_LIMIT_MAX,
   },

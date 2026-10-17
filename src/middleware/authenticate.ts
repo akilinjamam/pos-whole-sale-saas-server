@@ -88,7 +88,9 @@ export const authenticate: RequestHandler = markAuthenticate(
  * Reachable whatever the subscription: the caller's own session (`/auth/*` — me, logout, password)
  * and the billing summary that explains the state they are in.
  */
-const SUBSCRIPTION_EXEMPT = ['/api/v1/auth', '/api/v1/org/subscription'];
+// `/org/export` (phase 7): a business's data stays downloadable whatever its subscription, until
+// it is purged — read-only, suspended or closed.
+const SUBSCRIPTION_EXEMPT = ['/api/v1/auth', '/api/v1/org/subscription', '/api/v1/org/export'];
 
 /**
  * The blanket guard mounted at `/api/v1` in app.ts, with the public mounts exempted.

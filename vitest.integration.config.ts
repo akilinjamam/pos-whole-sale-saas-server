@@ -27,6 +27,7 @@ export default defineConfig({
     // never to a real inbox. AUTH_RATE_LIMIT_MAX for the same reason as RATE_LIMIT_MAX.
     env: {
       RATE_LIMIT_MAX: '100000',
+      ORG_RATE_LIMIT_MAX: '100000',
       AUTH_RATE_LIMIT_MAX: '100000',
       SMTP_HOST: '',
       JWT_PLATFORM_SECRET: 'integration-test-platform-secret-0123456789',

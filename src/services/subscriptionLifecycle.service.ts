@@ -11,6 +11,7 @@ import { formatMoney } from '../shared/money.js';
 
 import * as templates from './emailTemplates.js';
 import { sendMail } from './mailer.service.js';
+import { purgeCandidates } from './orgPurge.service.js';
 import { invalidateOrgAccess, planByCode } from './subscription.service.js';
 
 import type { LifecycleNotice } from '../domain/subscription.js';
@@ -204,7 +205,7 @@ async function sendWeeklySummary(now: Date): Promise<LifecycleRunSummary['weekly
   const admins = await PlatformAdmin.find({ isActive: true }).select('name email').lean();
   if (admins.length === 0) return 'no-admins';
 
-  const d = await platformDashboard();
+  const [d, purgeDue] = await Promise.all([platformDashboard(), purgeCandidates(now)]);
   const row = (t: { name: string; daysLeft: number | null }) =>
     `${t.name}${t.daysLeft !== null ? ` — ${t.daysLeft} day(s)` : ''}`;
   const lines = [
@@ -219,6 +220,10 @@ async function sendWeeklySummary(now: Date): Promise<LifecycleRunSummary['weekly
       items: d.planRequests.map(
         (t) => `${t.name} → ${t.planRequest!.planName}, ${t.planRequest!.cycle.toLowerCase()}`,
       ),
+    },
+    {
+      heading: 'Closed, past the keeping period — run npm run purge:orgs',
+      items: purgeDue.map((o) => `${o.name} (closed ${templates.dateText(o.cancelledAt ?? now)})`),
     },
   ];
 

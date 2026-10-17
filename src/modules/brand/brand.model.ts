@@ -32,7 +32,7 @@ const brandSchema = new Schema<BrandDoc>({
   name: { type: String, required: true, trim: true },
   slug: { type: String, required: true, trim: true, lowercase: true },
   logoUrl: { type: String, trim: true, default: null },
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
 });
 
 brandSchema.plugin(baseSchemaPlugin);

@@ -5,7 +5,12 @@ import { requirePermission } from '../../middleware/requirePermission.js';
 import { validate } from '../../middleware/validate.js';
 
 import * as ctrl from './org.controller.js';
-import { planRequestSchema, updateOrgSchema, updateOrgSettingsSchema } from './org.schema.js';
+import {
+  closeOrgSchema,
+  planRequestSchema,
+  updateOrgSchema,
+  updateOrgSettingsSchema,
+} from './org.schema.js';
 
 /**
  * Every route carries `authenticate` explicitly even though app.ts mounts it defensively at
@@ -66,6 +71,21 @@ orgRouter.post(
   authenticate,
   requirePermission('org:update'),
   ctrl.dismissOnboarding,
+);
+
+// Everything the business has, as a zip (SaaS phase 7). Exempt from the subscription check in
+// `authenticate`, like `/subscription`: read-only, suspended or closed, their data is theirs until
+// it is purged.
+orgRouter.get('/export', authenticate, requirePermission('org:export'), ctrl.exportOrg);
+
+// The owner closes the business (SaaS phase 7). `org:update` gets them to the service, which then
+// refuses anyone but the owner and wants the name and password.
+orgRouter.post(
+  '/close',
+  authenticate,
+  requirePermission('org:update'),
+  validate({ body: closeOrgSchema }),
+  ctrl.closeOrg,
 );
 
 export default orgRouter;

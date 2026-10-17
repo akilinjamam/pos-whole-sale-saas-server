@@ -103,7 +103,7 @@ const productSchema = new Schema<ProductDoc>({
   ...auditableFields,
   sku: { type: String, required: true, trim: true, uppercase: true },
   name: { type: String, required: true, trim: true },
-  type: { type: String, required: true, enum: PRODUCT_TYPES, index: true },
+  type: { type: String, required: true, enum: PRODUCT_TYPES },
   brandId: { type: Schema.Types.ObjectId, ref: 'Brand', default: null },
   categoryId: { type: Schema.Types.ObjectId, ref: 'Category', default: null },
   description: { type: String, trim: true, default: null },
@@ -129,7 +129,7 @@ const productSchema = new Schema<ProductDoc>({
   reorderQty: { type: Number, default: 0, min: 0 },
   leadTimeDays: { type: Number, default: 0, min: 0 },
 
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
   isSellableAtCounter: { type: Boolean, default: true },
   isSellableWholesale: { type: Boolean, default: true },
 

@@ -21,7 +21,9 @@
 
 /** Grouped for the permission-matrix editor; the grouping has no runtime meaning. */
 export const PERMISSIONS = {
-  ORG: ['org:read', 'org:update', 'settings:manage'],
+  // `org:export` — download every record of the business (SaaS phase 7). Separate from reading the
+  // profile: it hands over costs, dealers and the whole ledger in one file.
+  ORG: ['org:read', 'org:update', 'settings:manage', 'org:export'],
 
   USER: ['user:read', 'user:create', 'user:update', 'user:delete', 'user:resetPassword'],
 

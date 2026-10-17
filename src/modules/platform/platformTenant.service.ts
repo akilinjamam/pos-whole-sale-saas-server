@@ -74,10 +74,12 @@ type OrgRow = Pick<
   | 'signupSource'
   | 'createdAt'
   | 'planRequest'
+  | 'purgeAfter'
+  | 'purgedAt'
 >;
 
 const SUMMARY_FIELDS =
-  'name slug status planCode trialEndsAt currentPeriodEndsAt ownerUserId signupSource createdAt planRequest';
+  'name slug status planCode trialEndsAt currentPeriodEndsAt ownerUserId signupSource createdAt planRequest purgeAfter purgedAt';
 
 /** Counts per business for one collection, in one query. */
 async function countByOrg(
@@ -151,6 +153,8 @@ async function summaries(orgs: OrgRow[], now = new Date()): Promise<TenantSummar
         o.planRequest,
         o.planRequest ? planName.get(o.planRequest.planCode) : null,
       ),
+      purgeAfter: iso(o.purgeAfter),
+      purgedAt: iso(o.purgedAt),
     };
   });
 }
@@ -396,19 +400,41 @@ export function cancelTenant(actor: PlatformActor, id: Types.ObjectId, input: Re
   return changeOrg(actor, id, 'TENANT_CANCEL', (org) => {
     if (org.status === 'CANCELLED')
       throw ApiError.conflict('ILLEGAL_TRANSITION', 'Already closed');
-    return { set: { status: 'CANCELLED' }, details: { reason: input.reason } };
+    const now = new Date();
+    return {
+      set: {
+        status: 'CANCELLED',
+        cancelledAt: now,
+        purgeAfter: new Date(now.getTime() + config.saas.purgeAfterDays * DAY_MS),
+        cancellationReason: input.reason,
+        cancelledBy: 'PLATFORM',
+      },
+      details: { reason: input.reason },
+    };
   });
 }
 
 export function reactivateTenant(actor: PlatformActor, id: Types.ObjectId, input: ReasonInput) {
   return changeOrg(actor, id, 'TENANT_REACTIVATE', (org) => {
+    if (org.purgedAt) {
+      throw ApiError.conflict('ILLEGAL_TRANSITION', 'This business’s data has been deleted');
+    }
     if (org.status !== 'SUSPENDED' && org.status !== 'CANCELLED') {
       throw ApiError.conflict(
         'ILLEGAL_TRANSITION',
         'Only a suspended or closed business can be reactivated',
       );
     }
-    return { set: { status: statusFromDates(org) }, details: { reason: input.reason } };
+    return {
+      set: {
+        status: statusFromDates(org),
+        cancelledAt: null,
+        purgeAfter: null,
+        cancellationReason: null,
+        cancelledBy: null,
+      },
+      details: { reason: input.reason },
+    };
   });
 }
 

@@ -69,6 +69,29 @@ one is enough: `docker compose up -d` in the server folder gives one on port 270
 5. `pm2 start pos-wholesale-saas-api`. Anything entered after the archive was taken must be re-entered:
    check the last document numbers (Settings → Numbering shows the next one).
 
+## Restoring one business
+
+When one business needs something back — a deleted dealer, last week's prices — without rolling every
+other business back with it (SaaS phase 7):
+
+```bash
+MONGORESTORE="docker exec -i pos-wholesale-saas-mongo mongorestore" \
+  npx tsx scripts/restore-org.ts --archive <archive.gz> --org <orgId> [--uri <scratch server>]
+```
+
+It restores the archive into a scratch database `restore_org_<orgId>` (on the local replica set by
+default — never the live database; it refuses the live name), then deletes every other business's
+documents and the platform admins, and prints what is left. Then:
+
+1. Look: `mongosh '<uri>'` → `use restore_org_<orgId>`, and find what was lost.
+2. Check it balances: `MONGODB_URI='<uri>' MONGODB_DB_NAME=restore_org_<orgId> npx tsx scripts/reconcile-all.ts`.
+3. Copy back **only** what is needed, by hand, with the API stopped or the business told — e.g. a
+   master record (a dealer, a product) that has no ledger behind it. Never copy posted documents,
+   ledger entries or stock movements back one by one: balances are caches of the ledgers, and a
+   half-restored ledger is worse than none. If the ledgers themselves need to go back, that is a
+   whole-database restore (above), for everyone.
+4. Drop the scratch database when done.
+
 ## What the scripts check
 
 - `backup.sh` refuses an archive under 1 KB (an empty dump is not a backup), and — with

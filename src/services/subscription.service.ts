@@ -207,7 +207,7 @@ export async function getSubscription(orgId: Types.ObjectId): Promise<Subscripti
     countInUse(orgId, 'locations'),
     countInUse(orgId, 'products'),
     activePlans(),
-    Org.findById(orgId).select('planRequest').lean(),
+    Org.findById(orgId).select('planRequest ownerUserId cancelledAt purgeAfter').lean(),
   ]);
   const iso = (d: Date | null) => (d ? d.toISOString() : null);
   const request = org?.planRequest ?? null;
@@ -227,6 +227,9 @@ export async function getSubscription(orgId: Types.ObjectId): Promise<Subscripti
     paymentInstructions: config.saas.billingInstructions,
     plans,
     planRequest: toPlanRequestPayload(request, requestedPlan?.name),
+    ownerUserId: org?.ownerUserId ? String(org.ownerUserId) : null,
+    closedAt: iso(org?.cancelledAt ?? null),
+    purgeAfter: iso(org?.purgeAfter ?? null),
   };
 }
 

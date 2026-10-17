@@ -8,9 +8,16 @@ import {
   withdrawPlanRequest as withdrawPlanRequestFor,
 } from '../../services/subscription.service.js';
 
+import { closeOrg as closeOrgFor } from './orgClosure.service.js';
+import { streamOrgExport } from './orgExport.service.js';
 import * as orgService from './org.service.js';
 
-import type { PlanRequestInput, UpdateOrgInput, UpdateOrgSettingsInput } from './org.schema.js';
+import type {
+  CloseOrgInput,
+  PlanRequestInput,
+  UpdateOrgInput,
+  UpdateOrgSettingsInput,
+} from './org.schema.js';
 
 /**
  * Controllers do three things and no more: pull the verified identity off the request, call a
@@ -50,4 +57,13 @@ export const requestPlan = asyncHandler(async (req, res) => {
 
 export const withdrawPlanRequest = asyncHandler(async (req, res) => {
   sendData(res, await withdrawPlanRequestFor(requestActorOf(req)));
+});
+
+/** Streams the zip itself — no `sendData`; a failure after the first byte cuts the download. */
+export const exportOrg = asyncHandler(async (req, res) => {
+  await streamOrgExport(requestActorOf(req), res);
+});
+
+export const closeOrg = asyncHandler(async (req, res) => {
+  sendData(res, await closeOrgFor(requestActorOf(req), req.body as CloseOrgInput));
 });

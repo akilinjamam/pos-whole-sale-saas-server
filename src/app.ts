@@ -35,6 +35,18 @@ export function createApp(): Express {
       },
       // Health polls every few seconds from the client Home page; do not flood the log.
       autoLogging: { ignore: (req) => req.url?.startsWith('/api/v1/health') ?? false },
+      // Which business and who (SaaS phase 7), so one tenant's traffic can be followed through the
+      // log. Called when the line is written — after `authenticate` has set the user — so a request
+      // refused before authentication simply has neither.
+      customProps: (req) => {
+        const { user, platformAdmin } = req as {
+          user?: { orgId: string; id: string };
+          platformAdmin?: { _id: unknown };
+        };
+        if (user) return { orgId: user.orgId, userId: user.id };
+        if (platformAdmin) return { platformAdminId: String(platformAdmin._id) };
+        return {};
+      },
 
       /**
        * Log every request, but only the part anyone reads.
@@ -107,6 +119,29 @@ export function createApp(): Express {
   // between writing a route and running that test, an unguarded endpoint is still not
   // anonymous. `publicPaths` is the explicit, deliberately tiny exemption list.
   app.use('/api/v1', authenticateUnlessPublic(publicPaths));
+
+  // A second limit per business (SaaS phase 7), on top of the per-address one above: a busy tenant
+  // spread over many addresses — a dozen counters, a script — cannot starve the others. Keyed on
+  // the verified `orgId`, so it runs after the guard; public and platform requests have no user and
+  // are left to the address limit.
+  app.use(
+    '/api/v1',
+    rateLimit({
+      windowMs: config.http.rateLimitWindowMs,
+      max: config.http.orgRateLimitMax,
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: (req) => !req.user,
+      keyGenerator: (req) => `org:${req.user!.orgId}`,
+      message: {
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Your business is sending too many requests — wait a minute and try again',
+        },
+      },
+    }),
+  );
 
   for (const { path, route, feature } of allRoutes) {
     if (feature) app.use(`/api/v1/${path}`, requireFeature(feature), route);

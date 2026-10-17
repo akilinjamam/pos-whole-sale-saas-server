@@ -363,6 +363,8 @@ export const AUDIT_ACTIONS = [
   'NUMBER_SERIES_CHANGE',
   'PLAN_REQUEST',
   'PLAN_REQUEST_WITHDRAW',
+  'DATA_EXPORT',
+  'ORG_CLOSE',
 ] as const;
 export type AuditAction = Member<typeof AUDIT_ACTIONS>;
 

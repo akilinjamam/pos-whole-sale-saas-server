@@ -62,7 +62,7 @@ const variantSchema = new Schema<VariantDoc>({
   barcode: { type: String, trim: true, default: null },
   priceDeltaMinor: { type: Number, default: 0 },
   avgCostMinor: { type: Number, default: 0, min: 0 },
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
 });
 
 variantSchema.plugin(baseSchemaPlugin);

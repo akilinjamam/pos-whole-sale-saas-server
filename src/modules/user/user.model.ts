@@ -73,7 +73,7 @@ const userSchema = new Schema<UserDoc, UserModel, UserMethods>({
   permissionRevokes: { type: [String], default: [] },
   locationIds: { type: [{ type: Schema.Types.ObjectId, ref: 'Location' }], default: [] },
   defaultLocationId: { type: Schema.Types.ObjectId, ref: 'Location', default: null },
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
   mustChangePassword: { type: Boolean, default: false },
   emailVerifiedAt: { type: Date, default: null },
   lastLoginAt: { type: Date, default: null },

@@ -48,7 +48,7 @@ const locationSchema = new Schema<LocationDoc>({
   phone: { type: String, trim: true, default: null },
   allowsSales: { type: Boolean, default: true },
   allowsPurchase: { type: Boolean, default: true },
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
   sortOrder: { type: Number, default: 0 },
 });
 

@@ -76,6 +76,17 @@ export interface OrgDoc {
   trialEndsAt: Date | null;
   currentPeriodEndsAt: Date | null;
   planRequest: PlanRequestDoc | null;
+  /**
+   * Closing (SaaS phase 7). `cancelledAt` / `purgeAfter` are set whenever the status becomes
+   * CANCELLED — by the owner or the platform — and cleared on reactivation. `scripts/purge-org.ts`
+   * deletes the business's data once `purgeAfter` has passed and sets `purgedAt`; the org document
+   * itself is kept, stripped, as a tombstone for the platform's records.
+   */
+  cancelledAt: Date | null;
+  purgeAfter: Date | null;
+  cancellationReason: string | null;
+  cancelledBy: 'OWNER' | 'PLATFORM' | null;
+  purgedAt: Date | null;
   ownerUserId: Types.ObjectId | null;
   signupSource: SignupSource;
   /** When the owner closed the first-steps checklist (SaaS phase 3). */
@@ -135,6 +146,11 @@ const orgSchema = new Schema<OrgDoc>({
   trialEndsAt: { type: Date, default: null },
   currentPeriodEndsAt: { type: Date, default: null },
   planRequest: { type: planRequestSchema, default: null },
+  cancelledAt: { type: Date, default: null },
+  purgeAfter: { type: Date, default: null },
+  cancellationReason: { type: String, trim: true, default: null },
+  cancelledBy: { type: String, enum: ['OWNER', 'PLATFORM', null], default: null },
+  purgedAt: { type: Date, default: null },
   ownerUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   signupSource: { type: String, enum: SIGNUP_SOURCES, default: 'SEED' },
   onboardingDismissedAt: { type: Date, default: null },

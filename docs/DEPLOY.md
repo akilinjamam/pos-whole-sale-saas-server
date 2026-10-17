@@ -133,12 +133,29 @@ scratch database first (`scripts/restore-drill.sh`), compare, and only then deci
 - `GET /api/v1/health` — 200 with `db.state: connected` and `replicaSet: true`. Point an uptime
   monitor at it.
 - `npx tsx scripts/reconcile-all.ts` nightly from cron after the backup; it exits 1 on any drift.
+- `npm run purge:orgs` (SaaS phase 7) — a dry run listing closed businesses past their keeping
+  period (`PURGE_AFTER_DAYS`, default 90) and what would be deleted. The Monday summary email lists
+  them too. Take a backup, then `npm run purge:orgs -- --execute`. Deliberately **not** on a timer:
+  deleting a business's data is a decision someone makes. Their subscription payments and the
+  platform audit log are kept; the business stays in the platform list as "data deleted".
 - `pm2 logs pos-wholesale-saas-daily` — the subscription job's summary each morning (businesses
   checked, marked past due, emails sent / failed). `emailsFailed > 0` means SMTP is broken.
 - `pm2 logs pos-wholesale-saas-api` — JSON lines (pino). `LOG_LEVEL=info`.
 - The index review after any release that adds a list screen or a filter.
 
 ## 6. Known housekeeping
+
+- **SaaS phase 7 — after the deploy that brings it:** run `npm run seed` (it does on every deploy)
+  so every business's Owner and Administrator roles gain the new `org:export` permission — without
+  it nobody sees "Download my data". New variables, both optional: `ORG_RATE_LIMIT_MAX` (per
+  business per minute, default 1200) and `PURGE_AFTER_DAYS` (default 90).
+- **SaaS phase 7 dropped seven single-field indexes** that no query used once every query leads with
+  `orgId` (they only cost writes). `scripts/index-review.ts` lists them as _extra_ until dropped:
+  ```js
+  db.brands.dropIndex('isActive_1'); db.categories.dropIndex('isActive_1');
+  db.locations.dropIndex('isActive_1'); db.products.dropIndex('isActive_1');
+  db.products.dropIndex('type_1'); db.users.dropIndex('isActive_1'); db.variants.dropIndex('isActive_1');
+  ```
 
 - The audit log's original `{ orgId, at }` index was superseded on Day 40 by `{ orgId, at, _id }`.
   `scripts/index-review.ts` lists it as _extra_; drop it once:

@@ -15,6 +15,11 @@
  *     A `COLLSCAN` (reads the whole collection) or a blocking `SORT` (sorts in memory, and fails
  *     past 100 MB) on an org's own data is a finding. The org-wide queries are fine on an empty
  *     database too: the planner chooses by shape, not by size.
+ *
+ *  3. **Tenant-first (SaaS phase 7).** With many businesses in one collection, an index that does
+ *     not *start* with `orgId` makes every business's query walk everyone's keys. So: each query's
+ *     winning index must lead with `orgId`, and every index defined on a tenant model must too —
+ *     except the few that are deliberately platform-wide (listed below, with why).
  */
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -67,6 +72,35 @@ if (sync && missingTotal) {
   for (const model of Object.values(mongoose.models)) await model.createIndexes();
   console.log('  --sync: missing indexes built');
 }
+
+// ─── 3a. Tenant models: every defined index leads with orgId ────────────────────────────
+
+/** Indexes on tenant collections that are platform-wide on purpose. `Model:{"key":1}` → why. */
+const PLATFORM_WIDE: Record<string, string> = {
+  'User:{"email":1}': 'login is by email alone, so emails are unique across the platform',
+  'EmailToken:{"tokenHash":1}': 'a link is looked up by its token, before anyone is signed in',
+  'EmailToken:{"expiresAt":1}': 'TTL index — Mongo expires tokens across all businesses',
+  'SubscriptionPayment:{"method":1,"trxId":1}': 'a bKash / Nagad transaction id is used once, platform-wide',
+  'SubscriptionPayment:{"receiptNo":1}': 'receipt numbers are the platform\'s own series',
+  'SubscriptionPayment:{"paidAt":-1}': 'the platform\'s payments list, across businesses',
+  'SubscriptionNotice:{"key":1}': 'the key embeds the orgId; the platform claims notices by key',
+  'SubscriptionNotice:{"orgId":1,"sentAt":-1}': 'leads with orgId already',
+  'EmailToken:{"userId":1,"purpose":1,"usedAt":1}': 'user ids are unique platform-wide; one user\'s tokens',
+  'HeldSale:{"expiresAt":1}': 'TTL index — Mongo expires held sales across all businesses',
+};
+
+console.log('\n── Tenant indexes lead with orgId ──');
+const notTenantFirst: string[] = [];
+for (const model of Object.values(mongoose.models)) {
+  if (!model.schema.path('orgId')) continue; // platform-level collection
+  for (const [fields] of model.schema.indexes()) {
+    const first = Object.keys(fields)[0];
+    const key = `${model.modelName}:${keyOf(fields)}`;
+    if (first !== 'orgId' && !(key in PLATFORM_WIDE)) notTenantFirst.push(key);
+  }
+}
+if (notTenantFirst.length) notTenantFirst.forEach((k) => console.log(`  NOT orgId-first ${k}`));
+else console.log('  every tenant index leads with orgId (or is listed as platform-wide on purpose)');
 
 // ─── 2. The real query set ──────────────────────────────────────────────────────────────
 
@@ -192,6 +226,7 @@ const QUERIES: Q[] = [
  * Screens over collections that stay small for an org — tens to a few thousand rows a year — where
  * sorting a page in memory costs nothing worth an extra index on every write. Reviewed on Day 40.
  */
+// Only IN-MEMORY SORT findings may be accepted; COLLSCAN and NOT ORGID-FIRST never are.
 const ACCEPTED = new Set([
   'Users',
   'Shifts',
@@ -207,7 +242,13 @@ const ACCEPTED = new Set([
   'Sales returns',
 ]);
 
-type Stage = { stage: string; inputStage?: Stage; inputStages?: Stage[]; indexName?: string };
+type Stage = {
+  stage: string;
+  inputStage?: Stage;
+  inputStages?: Stage[];
+  indexName?: string;
+  keyPattern?: Record<string, unknown>;
+};
 function stages(s: Stage | undefined, out: Stage[] = []): Stage[] {
   if (!s) return out;
   out.push(s);
@@ -233,11 +274,20 @@ for (const q of QUERIES) {
   };
   const winning = plan.queryPlanner.winningPlan.queryPlan ?? plan.queryPlanner.winningPlan;
   const all = stages(winning);
-  const index = all.find((s) => s.indexName)?.indexName ?? '—';
+  const scan = all.find((s) => s.indexName);
+  const index = scan?.indexName ?? '—';
   const collscan = all.some((s) => s.stage === 'COLLSCAN');
   const sortStage = all.some((s) => s.stage === 'SORT');
-  const raw = collscan ? 'COLLSCAN' : sortStage ? 'IN-MEMORY SORT' : 'ok';
-  const verdict = raw !== 'ok' && ACCEPTED.has(q.screen) ? 'accepted' : raw;
+  // Phase 7: an index that does not lead with orgId reads every business's keys.
+  const tenantFirst = !scan?.keyPattern || Object.keys(scan.keyPattern)[0] === 'orgId';
+  const raw = collscan
+    ? 'COLLSCAN'
+    : !tenantFirst
+      ? 'NOT ORGID-FIRST'
+      : sortStage
+        ? 'IN-MEMORY SORT'
+        : 'ok';
+  const verdict = raw === 'IN-MEMORY SORT' && ACCEPTED.has(q.screen) ? 'accepted' : raw;
   if (verdict !== 'ok' && verdict !== 'accepted')
     findings.push(`${q.screen} (${q.model}): ${verdict}`);
   console.log(`  ${verdict.padEnd(14)} ${q.screen.padEnd(38)} ${index}`);
@@ -247,4 +297,5 @@ console.log(
   `\n${findings.length ? `${findings.length} finding(s):\n  ${findings.join('\n  ')}` : 'No findings.'}`,
 );
 await disconnectDatabase();
-process.exit(findings.length || missingTotal ? 1 : 0);
+if (notTenantFirst.length) console.log(`${notTenantFirst.length} tenant index(es) not orgId-first.`);
+process.exit(findings.length || missingTotal || notTenantFirst.length ? 1 : 0);

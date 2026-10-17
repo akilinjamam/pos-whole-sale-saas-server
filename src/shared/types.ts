@@ -226,6 +226,11 @@ export interface SubscriptionPayload {
   plans: PlanPayload[];
   /** The plan the business has asked for and the platform has not acted on yet. */
   planRequest: PlanRequestPayload | null;
+  /** Only this user may close the business (SaaS phase 7). */
+  ownerUserId: string | null;
+  /** Set once the business is closed: when, and the day its data may be deleted. */
+  closedAt: string | null;
+  purgeAfter: string | null;
 }
 
 /**

@@ -46,7 +46,7 @@ const categorySchema = new Schema<CategoryDoc>({
   parentId: { type: Schema.Types.ObjectId, ref: 'Category', default: null },
   path: { type: [{ type: Schema.Types.ObjectId, ref: 'Category' }], default: [] },
   productType: { type: String, enum: [...PRODUCT_TYPES, null], default: null },
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
 });
 
 categorySchema.plugin(baseSchemaPlugin);
