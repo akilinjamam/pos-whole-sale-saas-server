@@ -117,6 +117,10 @@ export type PlanFeature = Member<typeof PLAN_FEATURES>;
 export const LIMITED_RESOURCES = ['users', 'locations', 'products'] as const;
 export type LimitedResource = Member<typeof LIMITED_RESOURCES>;
 
+/** How often a business means to pay — chosen when it asks for a plan. */
+export const BILLING_CYCLES = ['MONTHLY', 'YEARLY'] as const;
+export type BillingCycle = Member<typeof BILLING_CYCLES>;
+
 /**
  * What a business may do right now, given its subscription: everything, look but not change
  * (expired past the grace period), or nothing (suspended / cancelled).
@@ -357,6 +361,8 @@ export const AUDIT_ACTIONS = [
   'ORG_PROFILE_CHANGE',
   'SETTINGS_CHANGE',
   'NUMBER_SERIES_CHANGE',
+  'PLAN_REQUEST',
+  'PLAN_REQUEST_WITHDRAW',
 ] as const;
 export type AuditAction = Member<typeof AUDIT_ACTIONS>;
 

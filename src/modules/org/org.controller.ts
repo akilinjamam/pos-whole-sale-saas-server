@@ -2,11 +2,15 @@ import { asyncHandler } from '../../lib/asyncHandler.js';
 import { orgIdOf, requestActorOf } from '../../lib/requestUser.js';
 import { sendData } from '../../lib/respond.js';
 
-import { getSubscription as subscriptionOf } from '../../services/subscription.service.js';
+import {
+  getSubscription as subscriptionOf,
+  requestPlan as requestPlanFor,
+  withdrawPlanRequest as withdrawPlanRequestFor,
+} from '../../services/subscription.service.js';
 
 import * as orgService from './org.service.js';
 
-import type { UpdateOrgInput, UpdateOrgSettingsInput } from './org.schema.js';
+import type { PlanRequestInput, UpdateOrgInput, UpdateOrgSettingsInput } from './org.schema.js';
 
 /**
  * Controllers do three things and no more: pull the verified identity off the request, call a
@@ -38,4 +42,12 @@ export const dismissOnboarding = asyncHandler(async (req, res) => {
 
 export const getSubscription = asyncHandler(async (req, res) => {
   sendData(res, await subscriptionOf(orgIdOf(req)));
+});
+
+export const requestPlan = asyncHandler(async (req, res) => {
+  sendData(res, await requestPlanFor(requestActorOf(req), req.body as PlanRequestInput));
+});
+
+export const withdrawPlanRequest = asyncHandler(async (req, res) => {
+  sendData(res, await withdrawPlanRequestFor(requestActorOf(req)));
 });

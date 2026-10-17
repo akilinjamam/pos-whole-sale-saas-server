@@ -112,6 +112,13 @@ router.post(
   ctrl.changeTenantPlan,
 );
 router.post(
+  '/tenants/:id/plan-request/dismiss',
+  auth,
+  can('platform:tenants'),
+  validate({ params: idParamSchema, body: reasonSchema }),
+  ctrl.dismissPlanRequest,
+);
+router.post(
   '/tenants/:id/extend-trial',
   auth,
   can('platform:tenants'),

@@ -1,5 +1,7 @@
 import { config } from '../config/env.js';
 
+import { formatMoney } from '../shared/money.js';
+
 import type { MailMessage } from './mailer.service.js';
 
 /**
@@ -80,5 +82,39 @@ export function resetPassword(input: {
     subject: `Reset your ${PRODUCT} password`,
     text: text(paragraphs, action),
     html: layout('Reset your password', paragraphs, action),
+  };
+}
+
+export interface PlanRequestedInput {
+  to: string;
+  adminName: string;
+  orgId: string;
+  businessName: string;
+  planName: string;
+  cycle: 'MONTHLY' | 'YEARLY';
+  priceMinor: number;
+  note: string | null;
+  requestedBy: string;
+}
+
+/** To the platform admins: a business has asked for a plan (Settings → Subscription). */
+export function planRequested(input: PlanRequestedInput): MailMessage {
+  const action = {
+    label: 'Open the business',
+    url: `${config.saas.publicUrl}/platform/tenants/${encodeURIComponent(input.orgId)}`,
+  };
+  const per = input.cycle === 'YEARLY' ? 'year' : 'month';
+  const paragraphs = [
+    `Hello ${input.adminName},`,
+    `${input.businessName} has asked for the ${input.planName} plan, paid every ${per} (${formatMoney(input.priceMinor)} per ${per}).`,
+    `Requested by ${input.requestedBy}.`,
+    ...(input.note ? [`Their note: ${input.note}`] : []),
+    'Nothing changes until you record their payment or change their plan.',
+  ];
+  return {
+    to: input.to,
+    subject: `Plan request: ${input.businessName} → ${input.planName}`,
+    text: text(paragraphs, action),
+    html: layout('A business has asked for a plan', paragraphs, action),
   };
 }

@@ -7,7 +7,11 @@ import { escapeRegex } from '../../lib/paginate.js';
 import { nextSequence } from '../../lib/numbering.js';
 import { withTransaction } from '../../lib/withTransaction.js';
 import { provisionOrg } from '../../services/provisioning.service.js';
-import { invalidateOrgAccess, planByCode } from '../../services/subscription.service.js';
+import {
+  invalidateOrgAccess,
+  planByCode,
+  toPlanRequestPayload,
+} from '../../services/subscription.service.js';
 import { Location } from '../location/location.model.js';
 import { Org } from '../org/org.model.js';
 import { Plan } from '../plan/plan.model.js';
@@ -67,10 +71,11 @@ type OrgRow = Pick<
   | 'ownerUserId'
   | 'signupSource'
   | 'createdAt'
+  | 'planRequest'
 >;
 
 const SUMMARY_FIELDS =
-  'name slug status planCode trialEndsAt currentPeriodEndsAt ownerUserId signupSource createdAt';
+  'name slug status planCode trialEndsAt currentPeriodEndsAt ownerUserId signupSource createdAt planRequest';
 
 /** Counts per business for one collection, in one query. */
 async function countByOrg(
@@ -140,6 +145,10 @@ async function summaries(orgs: OrgRow[], now = new Date()): Promise<TenantSummar
       lastActiveAt: iso(activeAt.get(key) ?? null),
       signupSource: o.signupSource ?? 'SEED',
       createdAt: o.createdAt.toISOString(),
+      planRequest: toPlanRequestPayload(
+        o.planRequest,
+        o.planRequest ? planName.get(o.planRequest.planCode) : null,
+      ),
     };
   });
 }
@@ -384,9 +393,25 @@ export async function changeTenantPlan(
   input: ChangePlanInput,
 ) {
   await assertPlanExists(input.planCode);
+  // Changing the plan answers any request the business made, whichever plan it asked for.
   return changeOrg(actor, id, 'TENANT_PLAN_CHANGE', () => ({
-    set: { planCode: input.planCode },
+    set: { planCode: input.planCode, planRequest: null },
   }));
+}
+
+/** Turn a plan request down without changing anything else — the reason is kept in the history. */
+export function dismissPlanRequest(actor: PlatformActor, id: Types.ObjectId, input: ReasonInput) {
+  return changeOrg(actor, id, 'TENANT_PLAN_REQUEST_DISMISS', (org) => {
+    if (!org.planRequest)
+      throw ApiError.conflict('ILLEGAL_TRANSITION', 'This business has no plan request');
+    return {
+      set: { planRequest: null },
+      details: {
+        reason: input.reason,
+        requested: { planCode: org.planRequest.planCode, cycle: org.planRequest.cycle },
+      },
+    };
+  });
 }
 
 export function extendTrial(actor: PlatformActor, id: Types.ObjectId, input: ExtendTrialInput) {
@@ -479,7 +504,8 @@ export async function recordPayment(
 
     await Org.updateOne(
       { _id: id },
-      { $set: { status: 'ACTIVE', planCode, currentPeriodEndsAt: end } },
+      // A payment answers the business's plan request, if it had one.
+      { $set: { status: 'ACTIVE', planCode, currentPeriodEndsAt: end, planRequest: null } },
       { session },
     );
     await writePlatformAudit(
@@ -586,6 +612,9 @@ export async function platformDashboard(): Promise<PlatformDashboardPayload> {
     overdue: rows
       .filter((r) => r.status === 'PAST_DUE')
       .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0)),
+    planRequests: rows
+      .filter((r) => r.planRequest)
+      .sort((a, b) => (a.planRequest!.requestedAt < b.planRequest!.requestedAt ? -1 : 1)),
     recentPayments: await paymentPayloads(recent),
   };
 }

@@ -5,7 +5,7 @@ import { requirePermission } from '../../middleware/requirePermission.js';
 import { validate } from '../../middleware/validate.js';
 
 import * as ctrl from './org.controller.js';
-import { updateOrgSchema, updateOrgSettingsSchema } from './org.schema.js';
+import { planRequestSchema, updateOrgSchema, updateOrgSettingsSchema } from './org.schema.js';
 
 /**
  * Every route carries `authenticate` explicitly even though app.ts mounts it defensively at
@@ -40,6 +40,23 @@ orgRouter.patch(
 // exempt from the subscription check itself (`authenticate`), or an expired business could not
 // read why it is expired.
 orgRouter.get('/subscription', authenticate, ctrl.getSubscription);
+
+// Ask the platform for a plan, or take the request back. `org:update`: choosing what the business
+// pays for is the owner's call, not a cashier's. Under `/org/subscription`, so it stays open to a
+// read-only business — the one most likely to need it.
+orgRouter.post(
+  '/subscription/plan-request',
+  authenticate,
+  requirePermission('org:update'),
+  validate({ body: planRequestSchema }),
+  ctrl.requestPlan,
+);
+orgRouter.delete(
+  '/subscription/plan-request',
+  authenticate,
+  requirePermission('org:update'),
+  ctrl.withdrawPlanRequest,
+);
 
 // The first-steps checklist on the dashboard (SaaS phase 3). Reading it is `org:read`, like the
 // profile it summarises; closing it changes the business, so it is `org:update`.

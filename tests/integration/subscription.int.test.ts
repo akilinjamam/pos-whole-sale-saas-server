@@ -182,6 +182,57 @@ describe('when the trial ends', () => {
   });
 });
 
+describe('a plan request', () => {
+  it('lists the plans on offer', async () => {
+    const plans = (await call('GET', 'org/subscription')).json?.data?.plans as { code: string }[];
+    expect(plans.map((p) => p.code)).toEqual(expect.arrayContaining(['STARTER', 'BUSINESS']));
+  });
+
+  it('is accepted even when read-only, replaced when asked again, and withdrawn', async () => {
+    await setSubscription({ status: 'TRIAL', trialEndsAt: new Date(Date.now() - 30 * DAY) });
+
+    const first = await call('POST', 'org/subscription/plan-request', {
+      planCode: 'business',
+      cycle: 'YEARLY',
+      note: 'Paying by bKash',
+    });
+    expect(first.status, JSON.stringify(first.json)).toBe(200);
+    expect(first.json?.data?.planRequest).toMatchObject({
+      planCode: 'BUSINESS',
+      planName: 'Business',
+      cycle: 'YEARLY',
+      note: 'Paying by bKash',
+      requestedByName: 'Starter Owner',
+    });
+    // Nothing changes until the platform acts.
+    expect(first.json?.data?.planCode).toBe('STARTER');
+
+    const second = await call('POST', 'org/subscription/plan-request', {
+      planCode: 'STARTER',
+      cycle: 'MONTHLY',
+    });
+    expect(second.json?.data?.planRequest).toMatchObject({ planCode: 'STARTER', note: null });
+
+    const gone = await call('DELETE', 'org/subscription/plan-request');
+    expect(gone.status).toBe(200);
+    expect(gone.json?.data?.planRequest).toBeNull();
+
+    await setSubscription({
+      status: 'ACTIVE',
+      trialEndsAt: null,
+      currentPeriodEndsAt: new Date(Date.now() + 30 * DAY),
+    });
+  });
+
+  it('refuses a plan that does not exist', async () => {
+    const res = await call('POST', 'org/subscription/plan-request', {
+      planCode: 'NOPE',
+      cycle: 'MONTHLY',
+    });
+    expect(res.status).toBe(422);
+  });
+});
+
 describe('a suspended business', () => {
   it('is shut out, but can still sign in and read why', async () => {
     await setSubscription({ status: 'SUSPENDED' });

@@ -2,9 +2,9 @@ import { Schema, model } from 'mongoose';
 
 import { baseSchemaPlugin } from '../../lib/model.js';
 
-import { ORG_STATUSES, SIGNUP_SOURCES } from '../../shared/enums.js';
+import { BILLING_CYCLES, ORG_STATUSES, SIGNUP_SOURCES } from '../../shared/enums.js';
 
-import type { OrgStatus, SignupSource } from '@shared/enums.js';
+import type { BillingCycle, OrgStatus, SignupSource } from '@shared/enums.js';
 import type { OrgPayload } from '@shared/types.js';
 import type { HydratedDocument, Model, Types } from 'mongoose';
 
@@ -20,6 +20,20 @@ export interface OrgSettingsDoc {
   defaultRetailTierId: Types.ObjectId | null;
   roundInvoiceTo: number;
   defaultPaymentTermsDays: number;
+}
+
+/**
+ * A plan the business has asked for (Settings → Subscription). One at a time: asking again replaces
+ * it. The platform clears it when it changes the plan or records a payment.
+ */
+export interface PlanRequestDoc {
+  planCode: string;
+  cycle: BillingCycle;
+  note: string | null;
+  requestedAt: Date;
+  requestedBy: Types.ObjectId;
+  /** Kept with the request so the platform list needs no user lookup. */
+  requestedByName: string;
 }
 
 /**
@@ -61,6 +75,7 @@ export interface OrgDoc {
   planCode: string | null;
   trialEndsAt: Date | null;
   currentPeriodEndsAt: Date | null;
+  planRequest: PlanRequestDoc | null;
   ownerUserId: Types.ObjectId | null;
   signupSource: SignupSource;
   /** When the owner closed the first-steps checklist (SaaS phase 3). */
@@ -80,6 +95,18 @@ const settingsSchema = new Schema<OrgSettingsDoc>(
     /** Minor units. 0 = no rounding; 100 = round the invoice total to whole taka. */
     roundInvoiceTo: { type: Number, default: 0, min: 0 },
     defaultPaymentTermsDays: { type: Number, default: 30, min: 0 },
+  },
+  { _id: false },
+);
+
+const planRequestSchema = new Schema<PlanRequestDoc>(
+  {
+    planCode: { type: String, required: true, trim: true, uppercase: true },
+    cycle: { type: String, enum: BILLING_CYCLES, required: true },
+    note: { type: String, trim: true, default: null },
+    requestedAt: { type: Date, required: true },
+    requestedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    requestedByName: { type: String, required: true },
   },
   { _id: false },
 );
@@ -107,6 +134,7 @@ const orgSchema = new Schema<OrgDoc>({
   planCode: { type: String, trim: true, uppercase: true, default: null },
   trialEndsAt: { type: Date, default: null },
   currentPeriodEndsAt: { type: Date, default: null },
+  planRequest: { type: planRequestSchema, default: null },
   ownerUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   signupSource: { type: String, enum: SIGNUP_SOURCES, default: 'SEED' },
   onboardingDismissedAt: { type: Date, default: null },

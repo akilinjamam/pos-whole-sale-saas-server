@@ -8,6 +8,7 @@
 
 import type {
   BaseUom,
+  BillingCycle,
   ErrorCode,
   LocationType,
   LimitedResource,
@@ -221,6 +222,23 @@ export interface SubscriptionPayload {
   usage: Record<LimitedResource, number>;
   /** How to pay (bKash number, bank account) — set on the server, shown on the billing page. */
   paymentInstructions: string | null;
+  /** Every plan on offer, cheapest first — the comparison on the billing page. */
+  plans: PlanPayload[];
+  /** The plan the business has asked for and the platform has not acted on yet. */
+  planRequest: PlanRequestPayload | null;
+}
+
+/**
+ * A business asking for a plan — to pay for after a trial, or to move up or down. The platform
+ * admin applies it (change plan or record payment), which clears it.
+ */
+export interface PlanRequestPayload {
+  planCode: string;
+  planName: string;
+  cycle: BillingCycle;
+  note: string | null;
+  requestedAt: string;
+  requestedByName: string | null;
 }
 
 /** `GET /org/onboarding` — the first-steps checklist on the dashboard (SaaS phase 3). */

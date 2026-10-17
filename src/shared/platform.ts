@@ -8,7 +8,7 @@
  */
 
 import type { LimitedResource, OrgStatus, SubscriptionAccess } from './enums.js';
-import type { PlanPayload } from './types.js';
+import type { PlanPayload, PlanRequestPayload } from './types.js';
 
 type Member<T extends readonly string[]> = T[number];
 
@@ -73,6 +73,8 @@ export interface TenantSummaryPayload {
   lastActiveAt: string | null;
   signupSource: string;
   createdAt: string;
+  /** A plan the business has asked for, waiting for the platform to act. */
+  planRequest: PlanRequestPayload | null;
 }
 
 export interface SubscriptionPaymentPayload {
@@ -131,5 +133,7 @@ export interface PlatformDashboardPayload {
   signupsThisMonth: number;
   trialsEndingSoon: TenantSummaryPayload[];
   overdue: TenantSummaryPayload[];
+  /** Businesses waiting for an answer to a plan request, oldest first. */
+  planRequests: TenantSummaryPayload[];
   recentPayments: SubscriptionPaymentPayload[];
 }

@@ -115,6 +115,13 @@ export const changeTenantPlan = asyncHandler(async (req, res) => {
   );
 });
 
+export const dismissPlanRequest = asyncHandler(async (req, res) => {
+  sendData(
+    res,
+    await tenants.dismissPlanRequest(platformActorOf(req), idOf(req), req.body as ReasonInput),
+  );
+});
+
 export const extendTrial = asyncHandler(async (req, res) => {
   sendData(
     res,

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BILLING_CYCLES } from '../../shared/enums.js';
+
 /**
  * Validation for the company profile.
  *
@@ -49,3 +51,14 @@ export const updateOrgSettingsSchema = z
   .strict();
 
 export type UpdateOrgSettingsInput = z.infer<typeof updateOrgSettingsSchema>;
+
+/** `POST /org/subscription/plan-request` — which plan, how often they mean to pay, and a note. */
+export const planRequestSchema = z
+  .object({
+    planCode: z.string().trim().toUpperCase().min(2).max(20),
+    cycle: z.enum(BILLING_CYCLES),
+    note: z.string().trim().max(500).nullable().optional(),
+  })
+  .strict();
+
+export type PlanRequestInput = z.infer<typeof planRequestSchema>;

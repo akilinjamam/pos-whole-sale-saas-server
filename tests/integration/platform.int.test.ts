@@ -175,10 +175,39 @@ describe('a business, from creation to suspension', () => {
     expect(res.status).toBe(409);
   });
 
+  it('sees a plan request, which a dismiss or a plan change answers', async () => {
+    const ask = () =>
+      call(ownerToken, 'POST', 'org/subscription/plan-request', {
+        planCode: 'BUSINESS',
+        cycle: 'YEARLY',
+      });
+    expect((await ask()).status, 'request').toBe(200);
+
+    const dash = await call(rootToken, 'GET', 'platform/dashboard');
+    const waiting = dash.json!.data!.planRequests as { id: string }[];
+    expect(waiting.map((t) => t.id)).toContain(orgId);
+    const detail = await call(rootToken, 'GET', `platform/tenants/${orgId}`);
+    expect(detail.json!.data!.planRequest).toMatchObject({ planCode: 'BUSINESS', cycle: 'YEARLY' });
+
+    const dismissed = await call(rootToken, 'POST', `platform/tenants/${orgId}/plan-request/dismiss`, {
+      reason: 'Spoke on the phone — staying on Starter',
+    });
+    expect(dismissed.status).toBe(200);
+    expect(dismissed.json!.data!.planRequest).toBeNull();
+    expect(
+      (await call(rootToken, 'POST', `platform/tenants/${orgId}/plan-request/dismiss`, { reason: 'again' }))
+        .status,
+    ).toBe(409);
+
+    // Asked again; the plan change below answers it.
+    expect((await ask()).status).toBe(200);
+  });
+
   it('changes plan, and the business gets the new features on its next request', async () => {
     expect((await call(ownerToken, 'GET', 'reports/sales')).json?.error?.code).toBe('FEATURE_NOT_IN_PLAN');
     const res = await call(rootToken, 'POST', `platform/tenants/${orgId}/plan`, { planCode: 'BUSINESS' });
     expect(res.status).toBe(200);
+    expect(res.json!.data!.planRequest).toBeNull();
     expect((await call(ownerToken, 'GET', 'reports/sales')).json?.error?.code).not.toBe(
       'FEATURE_NOT_IN_PLAN',
     );
