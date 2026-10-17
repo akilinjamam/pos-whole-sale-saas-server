@@ -7,12 +7,14 @@ import { toPlatformAdminPayload } from './platformAdmin.model.js';
 import * as admins from './platformAdmin.service.js';
 import { platformActorOf } from './platformAudit.js';
 import * as plans from './platformPlan.service.js';
+import * as tutorials from './platformTutorial.service.js';
 import * as tenants from './platformTenant.service.js';
 
 import type {
   ChangePlanInput,
   CreateAdminInput,
   CreatePlanInput,
+  CreateTutorialInput,
   CreateTenantInput,
   ExtendTrialInput,
   ListPaymentsQuery,
@@ -23,6 +25,7 @@ import type {
   RecordPaymentInput,
   UpdateAdminInput,
   UpdatePlanInput,
+  UpdateTutorialInput,
 } from './platform.schema.js';
 import type { Request } from 'express';
 
@@ -190,4 +193,33 @@ export const updateAdmin = asyncHandler(async (req, res) => {
     res,
     await admins.updateAdmin(platformActorOf(req), idOf(req), req.body as UpdateAdminInput),
   );
+});
+
+// ─── Tutorials ──────────────────────────────────────────────────────────────────────────
+
+export const listTutorials = asyncHandler(async (_req, res) => {
+  sendData(res, await tutorials.listTutorials());
+});
+
+export const createTutorial = asyncHandler(async (req, res) => {
+  sendCreated(
+    res,
+    await tutorials.createTutorial(platformActorOf(req), req.body as CreateTutorialInput),
+  );
+});
+
+export const updateTutorial = asyncHandler(async (req, res) => {
+  sendData(
+    res,
+    await tutorials.updateTutorial(
+      platformActorOf(req),
+      idOf(req),
+      req.body as UpdateTutorialInput,
+    ),
+  );
+});
+
+export const deleteTutorial = asyncHandler(async (req, res) => {
+  await tutorials.deleteTutorial(platformActorOf(req), idOf(req));
+  sendNoContent(res);
 });

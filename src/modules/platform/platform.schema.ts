@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { listQuerySchema } from '../../lib/paginate.js';
 import { LIMITED_RESOURCES, ORG_STATUSES, PLAN_FEATURES } from '../../shared/enums.js';
 import { PLATFORM_PERMISSIONS, SUBSCRIPTION_PAYMENT_METHODS } from '../../shared/platform.js';
+import { TUTORIAL_TOPICS, parseYouTubeId } from '../../shared/tutorials.js';
 import { password } from '../user/user.schema.js';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id');
@@ -133,6 +134,39 @@ export type CreatePlanInput = z.infer<typeof createPlanSchema>;
 
 export const updatePlanSchema = z.object(planShape).partial().strict();
 export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
+
+// ─── Tutorials ──────────────────────────────────────────────────────────────────────────
+
+/** A YouTube link (any usual shape) or a bare id → the 11-character id. */
+const youtube = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    const id = parseYouTubeId(v);
+    if (!id) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Paste a YouTube video link' });
+      return z.NEVER;
+    }
+    return id;
+  });
+const optionalText = z.string().trim().max(500).nullable().optional();
+
+const tutorialShape = {
+  topic: z.enum(TUTORIAL_TOPICS),
+  titleBn: z.string().trim().min(1, 'Required').max(160),
+  titleEn: z.string().trim().min(1, 'Required').max(160),
+  descriptionBn: optionalText,
+  descriptionEn: optionalText,
+  youtubeId: youtube,
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+  isPublished: z.boolean().optional(),
+};
+
+export const createTutorialSchema = z.object(tutorialShape).strict();
+export type CreateTutorialInput = z.infer<typeof createTutorialSchema>;
+
+export const updateTutorialSchema = z.object(tutorialShape).partial().strict();
+export type UpdateTutorialInput = z.infer<typeof updateTutorialSchema>;
 
 // ─── Admins ─────────────────────────────────────────────────────────────────────────────
 

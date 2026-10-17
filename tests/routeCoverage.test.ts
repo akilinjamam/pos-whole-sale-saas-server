@@ -138,6 +138,9 @@ const SELF_SERVICE_ROUTES: Record<string, string> = {
     'Every signed-in user has a home page. Each section inside is included only when the caller ' +
     'holds the permission of the report behind it (sales → report:sales, receivables → ' +
     'payment:read, low stock → po:read, dispatch → order:read) — a cashier gets an empty one.',
+  tutorials:
+    'The training videos: public YouTube videos, the same for every business, holding no tenant ' +
+    'data. The client shows each person only those for the modules their role and plan open.',
 };
 
 /**

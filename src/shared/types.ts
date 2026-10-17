@@ -258,6 +258,8 @@ export interface PublicSitePayload {
   trialPlanCode: string;
   graceDays: number;
   purgeAfterDays: number;
+  /** The landing page's demo: the first published `overview` tutorial, if any. */
+  demoVideo: { youtubeId: string; titleBn: string; titleEn: string } | null;
   operator: {
     legalName: string | null;
     address: string | null;

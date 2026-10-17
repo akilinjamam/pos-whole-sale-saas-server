@@ -21,6 +21,8 @@ export const PLATFORM_PERMISSIONS = [
   'platform:plans',
   /** Add, edit and disable platform admins. */
   'platform:admins',
+  /** The training videos customers see (Tutorials, and the landing page's demo). */
+  'platform:content',
 ] as const;
 export type PlatformPermission = Member<typeof PLATFORM_PERMISSIONS>;
 

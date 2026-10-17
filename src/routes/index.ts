@@ -25,6 +25,7 @@ import locationRouter from '../modules/location/location.route.js';
 import orgRouter from '../modules/org/org.route.js';
 import platformRouter from '../modules/platform/platform.route.js';
 import publicRouter from '../modules/public/public.route.js';
+import tutorialRouter from '../modules/tutorial/tutorial.route.js';
 import paymentRouter from '../modules/payment/payment.route.js';
 import posRouter from '../modules/pos/pos.route.js';
 import { customerRouter, dealerRouter, supplierRouter } from '../modules/party/party.route.js';
@@ -160,6 +161,8 @@ export const allRoutes: RouteEntry[] = [
   // The home dashboard (Day 38): summaries of the reports, by their own functions.
   { path: 'dashboard', route: dashboardRouter },
   // What needs attention now (Day 39): low stock, expiry, overdue, approvals — computed, not stored.
+  // Training videos (phase 8): every signed-in user; the client filters by module.
+  { path: 'tutorials', route: tutorialRouter },
   { path: 'notifications', route: notificationsRouter },
 ];
 

@@ -4,6 +4,7 @@ import { config } from '../../config/env.js';
 import { asyncHandler } from '../../lib/asyncHandler.js';
 import { sendData } from '../../lib/respond.js';
 import { activePlans } from '../../services/subscription.service.js';
+import { publishedTutorials } from '../tutorial/tutorial.model.js';
 
 import type { PublicSitePayload } from '@shared/types.js';
 
@@ -16,13 +17,18 @@ const publicRouter = Router();
 publicRouter.get(
   '/site',
   asyncHandler(async (_req, res) => {
+    const [plans, overview] = await Promise.all([activePlans(), publishedTutorials('overview')]);
+    const demo = overview[0];
     const payload: PublicSitePayload = {
-      plans: await activePlans(),
+      plans,
       signupEnabled: config.saas.signupEnabled,
       trialDays: config.saas.trialDays,
       trialPlanCode: config.saas.trialPlanCode,
       graceDays: config.saas.graceDays,
       purgeAfterDays: config.saas.purgeAfterDays,
+      demoVideo: demo
+        ? { youtubeId: demo.youtubeId, titleBn: demo.titleBn, titleEn: demo.titleEn }
+        : null,
       operator: { ...config.site },
     };
     res.setHeader('Cache-Control', 'public, max-age=300');

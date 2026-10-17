@@ -14,6 +14,7 @@ import {
   codeParamSchema,
   createAdminSchema,
   createPlanSchema,
+  createTutorialSchema,
   createTenantSchema,
   extendTrialSchema,
   idParamSchema,
@@ -25,6 +26,7 @@ import {
   recordPaymentSchema,
   updateAdminSchema,
   updatePlanSchema,
+  updateTutorialSchema,
 } from './platform.schema.js';
 
 /**
@@ -164,6 +166,30 @@ router.patch(
   can('platform:plans'),
   validate({ params: codeParamSchema, body: updatePlanSchema }),
   ctrl.updatePlan,
+);
+
+// ── Tutorials ── The training videos every business sees.
+router.get('/tutorials', auth, can('platform:content'), ctrl.listTutorials);
+router.post(
+  '/tutorials',
+  auth,
+  can('platform:content'),
+  validate({ body: createTutorialSchema }),
+  ctrl.createTutorial,
+);
+router.patch(
+  '/tutorials/:id',
+  auth,
+  can('platform:content'),
+  validate({ params: idParamSchema, body: updateTutorialSchema }),
+  ctrl.updateTutorial,
+);
+router.delete(
+  '/tutorials/:id',
+  auth,
+  can('platform:content'),
+  validate({ params: idParamSchema }),
+  ctrl.deleteTutorial,
 );
 
 // ── Admins ──

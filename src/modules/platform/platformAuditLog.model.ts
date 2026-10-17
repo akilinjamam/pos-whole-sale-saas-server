@@ -22,6 +22,9 @@ export const PLATFORM_AUDIT_ACTIONS = [
   'PLAN_UPDATE',
   'ADMIN_CREATE',
   'ADMIN_UPDATE',
+  'TUTORIAL_CREATE',
+  'TUTORIAL_UPDATE',
+  'TUTORIAL_DELETE',
 ] as const;
 export type PlatformAuditAction = (typeof PLATFORM_AUDIT_ACTIONS)[number];
 
