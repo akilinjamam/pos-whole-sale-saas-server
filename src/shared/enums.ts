@@ -108,7 +108,9 @@ export type OnboardingStep = Member<typeof ONBOARDING_STEPS>;
 
 /**
  * Parts of the product a plan can include or leave out (SaaS phase 4). The core — catalog, stock,
- * dealers, wholesale orders, dispatch, invoices, receivables — is in every plan.
+ * dealers, wholesale orders, dispatch, invoices, receivables, and receiving from suppliers (goods
+ * receipts, supplier bills and payments, purchase returns) — is in every plan. PURCHASING is
+ * purchase orders and reorder suggestions.
  */
 export const PLAN_FEATURES = ['POS', 'PURCHASING', 'REPORTS'] as const;
 export type PlanFeature = Member<typeof PLAN_FEATURES>;

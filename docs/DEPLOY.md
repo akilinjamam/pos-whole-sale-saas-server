@@ -149,6 +149,11 @@ scratch database first (`scripts/restore-drill.sh`), compare, and only then deci
   so every business's Owner and Administrator roles gain the new `org:export` permission — without
   it nobody sees "Download my data". New variables, both optional: `ORG_RATE_LIMIT_MAX` (per
   business per minute, default 1200) and `PURGE_AFTER_DAYS` (default 90).
+- **SaaS phase 8 — the public website:** set `SITE_LEGAL_NAME`, `SITE_ADDRESS`, `SITE_EMAIL`,
+  `SITE_PHONE`, `SITE_WHATSAPP` in the API's `.env` (the legal pages show a "draft" notice until the
+  legal name is set; contact links appear only once set), and `VITE_SITE_URL` (e.g.
+  `https://app.example.com`) in the client's `.env` **before** `npm run build`, so the build writes
+  `sitemap.xml`. Then submit `<site>/sitemap.xml` in Google Search Console.
 - **SaaS phase 7 dropped seven single-field indexes** that no query used once every query leads with
   `orgId` (they only cost writes). `scripts/index-review.ts` lists them as _extra_ until dropped:
   ```js

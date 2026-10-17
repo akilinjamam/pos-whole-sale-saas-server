@@ -107,13 +107,17 @@ describe('the plan', () => {
     });
   });
 
-  it('leaves out what Starter does not include, and keeps the core', async () => {
+  it('leaves out what Starter does not include, and keeps the core — receiving included', async () => {
     const pos = await call('GET', 'pos/sessions');
     expect(pos.status).toBe(403);
     expect(pos.json?.error?.code).toBe('FEATURE_NOT_IN_PLAN');
     expect((await call('GET', 'reports/sales')).json?.error?.code).toBe('FEATURE_NOT_IN_PLAN');
     expect((await call('GET', 'purchase-orders')).json?.error?.code).toBe('FEATURE_NOT_IN_PLAN');
     expect((await call('GET', 'orders')).status).toBe(200);
+    // Receiving from suppliers is core: without it stock comes in with no cost and no bill.
+    expect((await call('GET', 'goods-receipts')).status).toBe(200);
+    expect((await call('GET', 'goods-receipts/register')).status).toBe(200);
+    expect((await call('GET', 'purchase-returns')).status).toBe(200);
   });
 
   it('refuses a user past the limit, and makes room when one is deactivated', async () => {
@@ -230,6 +234,18 @@ describe('a plan request', () => {
       cycle: 'MONTHLY',
     });
     expect(res.status).toBe(422);
+  });
+});
+
+describe('the public website', () => {
+  it('reads the plans and the numbers without a token, cacheable', async () => {
+    const res = await fetch(`${base}/public/site`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toContain('max-age');
+    const { data } = (await res.json()) as { data: Record<string, unknown> };
+    expect((data.plans as { code: string }[]).map((p) => p.code)).toContain('STARTER');
+    expect(data).toMatchObject({ trialDays: expect.any(Number), graceDays: expect.any(Number) });
+    expect(data.operator).toBeTypeOf('object');
   });
 });
 

@@ -24,6 +24,7 @@ import numberSeriesRouter from '../modules/numberSeries/numberSeries.route.js';
 import locationRouter from '../modules/location/location.route.js';
 import orgRouter from '../modules/org/org.route.js';
 import platformRouter from '../modules/platform/platform.route.js';
+import publicRouter from '../modules/public/public.route.js';
 import paymentRouter from '../modules/payment/payment.route.js';
 import posRouter from '../modules/pos/pos.route.js';
 import { customerRouter, dealerRouter, supplierRouter } from '../modules/party/party.route.js';
@@ -69,6 +70,8 @@ export const allRoutes: RouteEntry[] = [
   // The platform-admin API (SaaS phase 5). `public` only exempts it from the *tenant* blanket guard
   // — a platform token is not a tenant token. Every route in it carries `authenticatePlatform`.
   { path: 'platform', route: platformRouter, public: true },
+  // The signed-out website's plans, numbers and contact details (SaaS phase 8).
+  { path: 'public', route: publicRouter, public: true },
 
   { path: 'org', route: orgRouter },
   { path: 'locations', route: locationRouter },
@@ -138,14 +141,17 @@ export const allRoutes: RouteEntry[] = [
   { path: 'audit', route: auditRouter },
 
   // Purchase orders (Day 32). Status moves only through `domain/poStateMachine.ts`; receiving is
-  // done by a posted goods receipt (Day 33), not here.
+  // done by a posted goods receipt (Day 33), not here. The plan feature PURCHASING is purchase
+  // orders and reorder suggestions only — receiving is in every plan (below).
   { path: 'purchase-orders', route: supplierPoRouter, feature: 'PURCHASING' },
 
   // Goods receipts (Day 33): posting brings stock in, re-costs it, moves the PO and credits the
-  // supplier — in one transaction.
-  { path: 'goods-receipts', route: goodsReceiptRouter, feature: 'PURCHASING' },
-  // Goods going back to the supplier (Day 34): stock out, cost, a debit note.
-  { path: 'purchase-returns', route: purchaseReturnRouter, feature: 'PURCHASING' },
+  // supplier — in one transaction. In every plan: a wholesaler without goods receipts can only
+  // bring stock in by adjustment, with no cost and no supplier bill — so stock value, margins and
+  // supplier balances would all be wrong. A receipt needs no PO (`poId` is optional).
+  { path: 'goods-receipts', route: goodsReceiptRouter },
+  // Goods going back to the supplier (Day 34): stock out, cost, a debit note. Every plan, too.
+  { path: 'purchase-returns', route: purchaseReturnRouter },
   // Goods back from dealers (Day 36), and the credit notes they raise.
   { path: 'sales-returns', route: salesReturnRouter },
   { path: 'credit-notes', route: creditNoteRouter },

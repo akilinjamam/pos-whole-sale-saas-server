@@ -84,6 +84,29 @@ const envSchema = z.object({
   PURGE_AFTER_DAYS: z.coerce.number().int().min(7).max(3650).default(90),
   /** How to pay, shown on the billing page — e.g. "bKash 01XXXXXXXXX (merchant), reference: your business name". */
   BILLING_INSTRUCTIONS: z.string().trim().optional(),
+  /**
+   * Who runs the service, for the public website and the legal pages (SaaS phase 8). Shown on
+   * `/terms`, `/privacy`, `/refund-policy` and in the landing page's contact section. All optional;
+   * a legal page with no SITE_LEGAL_NAME says it is a draft.
+   */
+  SITE_LEGAL_NAME: z.string().trim().optional(),
+  SITE_ADDRESS: z.string().trim().optional(),
+  SITE_EMAIL: z.string().trim().email().optional().or(z.literal('')),
+  SITE_PHONE: z.string().trim().optional(),
+  /**
+   * The WhatsApp number for the website's chat button (a wa.me link, which needs the country code).
+   * Any usual way of writing it is accepted — 01XXXXXXXXX, +880 1XXX-XXXXXX, 8801XXXXXXXXX — and a
+   * Bangladeshi mobile number without the country code gets its 88 added.
+   */
+  SITE_WHATSAPP: z
+    .string()
+    .trim()
+    .transform((v) => {
+      const digits = v.replace(/\D/g, '');
+      return /^01\d{9}$/.test(digits) ? `88${digits}` : digits;
+    })
+    .refine((v) => v === '' || /^\d{10,15}$/.test(v), 'a phone number with country code, e.g. 8801XXXXXXXXX')
+    .optional(),
   /** Per IP, per 15 minutes, for each of signup / forgot-password / reset / verify. */
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   /**
@@ -198,6 +221,14 @@ export const config = Object.freeze({
     purgeAfterDays: raw.PURGE_AFTER_DAYS,
     billingInstructions: raw.BILLING_INSTRUCTIONS || null,
     authRateLimitMax: raw.AUTH_RATE_LIMIT_MAX,
+  },
+
+  site: {
+    legalName: raw.SITE_LEGAL_NAME || null,
+    address: raw.SITE_ADDRESS || null,
+    email: raw.SITE_EMAIL || null,
+    phone: raw.SITE_PHONE || null,
+    whatsapp: raw.SITE_WHATSAPP || null,
   },
 
   mail: {

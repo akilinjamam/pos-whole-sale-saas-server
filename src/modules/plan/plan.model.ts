@@ -81,7 +81,8 @@ export const DEFAULT_PLANS: Omit<PlanDoc, '_id' | 'createdAt' | 'updatedAt'>[] =
   {
     code: 'STARTER',
     name: 'Starter',
-    description: 'Wholesale orders, dispatch, invoices and dealer credit for a small team.',
+    description:
+      'Wholesale orders, dispatch, invoices, dealer credit, and receiving from suppliers — for a small team.',
     priceMonthlyMinor: 150_000,
     priceYearlyMinor: 1_500_000,
     limits: { users: 3, locations: 2, products: 500 },
@@ -92,7 +93,7 @@ export const DEFAULT_PLANS: Omit<PlanDoc, '_id' | 'createdAt' | 'updatedAt'>[] =
   {
     code: 'BUSINESS',
     name: 'Business',
-    description: 'Everything in Starter, plus the counter POS, purchasing and the report suite.',
+    description: 'Everything in Starter, plus the counter POS, purchase orders and the report suite.',
     priceMonthlyMinor: 350_000,
     priceYearlyMinor: 3_500_000,
     limits: { users: 10, locations: 5, products: 5_000 },

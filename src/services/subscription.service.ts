@@ -164,13 +164,13 @@ export function assertFeature(access: OrgAccess, feature: PlanFeature): void {
   if (!planHasFeature(access.plan, feature)) {
     const names: Record<PlanFeature, string> = {
       POS: 'The counter POS',
-      PURCHASING: 'Purchasing',
+      PURCHASING: 'Purchase orders',
       REPORTS: 'The report suite',
     };
     throw new ApiError(
       403,
       'FEATURE_NOT_IN_PLAN',
-      `${names[feature]} is not included in your ${access.plan!.name} plan. Upgrade to use it.`,
+      `${names[feature]} ${feature === 'PURCHASING' ? 'are' : 'is'} not included in your ${access.plan!.name} plan. Upgrade to use ${feature === 'PURCHASING' ? 'them' : 'it'}.`,
       { feature, planCode: access.planCode },
     );
   }

@@ -105,6 +105,9 @@ const PUBLIC_ROUTES: Record<string, string> = {
     'For someone who cannot sign in. Answers the same for unknown addresses, and is rate-limited.',
   'auth/reset-password':
     'Same as verify-email: the single-use token from the email is the credential.',
+  'public/site':
+    'The signed-out website: active plans, trial / grace / keeping days and the operator\'s ' +
+    'contact details — what the pricing and legal pages print anyway. Read-only, no tenant data.',
 };
 
 /**

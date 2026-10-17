@@ -6,7 +6,7 @@ import { reorderSuggestions } from '../supplierPo/reorder.service.js';
 import { WholesaleOrder } from '../wholesaleOrder/wholesaleOrder.model.js';
 import { formatMoney } from '../../shared/money.js';
 import { orgAccess } from '../../services/subscription.service.js';
-import { REMINDER_DAYS } from '../../domain/subscription.js';
+import { planHasFeature, REMINDER_DAYS } from '../../domain/subscription.js';
 
 import type { RequestActor } from '../../lib/requestUser.js';
 import type { OrgAccess } from '../../services/subscription.service.js';
@@ -79,11 +79,13 @@ export async function notifications(actor: RequestActor): Promise<NotificationsP
           ...(scope ? { locationId: { $in: scope } } : {}),
         })
       : null,
-    can('org:update') ? orgAccess(actor.orgId) : null,
+    // Cached per business; needed for the subscription notice and to know whether the plan has
+    // the Reorder screen to point the low-stock notice at.
+    orgAccess(actor.orgId),
   ]);
 
   const items: NotificationPayload[] = [];
-  const subscription = access ? subscriptionNotification(access) : null;
+  const subscription = can('org:update') ? subscriptionNotification(access) : null;
   if (subscription) items.push(subscription);
   if (lots) {
     const expired = lots.filter((l) => (l.daysToExpiry ?? 0) < 0);
@@ -142,7 +144,9 @@ export async function notifications(actor: RequestActor): Promise<NotificationsP
         .map((r) => r.sku)
         .join(' · '),
       count: reorder.length,
-      to: '/purchase/reorder',
+      // Reorder suggestions come with purchase orders (plan feature PURCHASING); without them, the
+      // stock screen, where the same products show as low.
+      to: planHasFeature(access.plan, 'PURCHASING') ? '/purchase/reorder' : '/inventory/stock',
     });
   }
   if (approvals) {

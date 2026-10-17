@@ -246,6 +246,27 @@ export interface PlanRequestPayload {
   requestedByName: string | null;
 }
 
+/**
+ * `GET /public/site` — everything the signed-out website needs (SaaS phase 8): the plans for the
+ * pricing table, the numbers the legal pages quote, and who to contact. The legal pages read the
+ * day counts from here so they always say what the system actually does.
+ */
+export interface PublicSitePayload {
+  plans: PlanPayload[];
+  signupEnabled: boolean;
+  trialDays: number;
+  trialPlanCode: string;
+  graceDays: number;
+  purgeAfterDays: number;
+  operator: {
+    legalName: string | null;
+    address: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+  };
+}
+
 /** `GET /org/onboarding` — the first-steps checklist on the dashboard (SaaS phase 3). */
 export interface OnboardingStepPayload {
   key: OnboardingStep;
