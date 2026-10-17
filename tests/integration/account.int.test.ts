@@ -144,6 +144,8 @@ describe('email verification', () => {
   it('verifies with the link, once', async () => {
     const token = tokenFromOutbox(email, '/verify-email');
     expect(await verifyEmail(token)).toEqual({ email });
+    // The owner of a self-service signup is welcomed once their address is confirmed.
+    expect(outbox.filter((m) => m.to === email && m.subject.startsWith('Welcome'))).toHaveLength(1);
 
     const user = await me(new Types.ObjectId(session.user.id));
     expect(user.emailVerified).toBe(true);

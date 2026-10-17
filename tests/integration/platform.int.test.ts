@@ -11,6 +11,7 @@ import { Org } from '../../src/modules/org/org.model.js';
 import { DEFAULT_PLANS, Plan } from '../../src/modules/plan/plan.model.js';
 import { PlatformAdmin } from '../../src/modules/platform/platformAdmin.model.js';
 import { PlatformAuditLog } from '../../src/modules/platform/platformAuditLog.model.js';
+import { outbox } from '../../src/services/mailer.service.js';
 import { invalidatePlans } from '../../src/services/subscription.service.js';
 
 import { cleanupOrg } from './fixtures/posFixture.js';
@@ -158,6 +159,10 @@ describe('a business, from creation to suspension', () => {
     // The business sees it at once.
     const sub = await call(ownerToken, 'GET', 'org/subscription');
     expect(sub.json!.data).toMatchObject({ status: 'ACTIVE', planCode: 'STARTER' });
+
+    // …and the owner is emailed a receipt.
+    const receipt = outbox.filter((m) => m.to === ownerEmail && m.subject.startsWith('Payment received'));
+    expect(receipt.at(-1)?.subject).toBe(`Payment received — ${String(payment.receiptNo)}`);
   });
 
   it('refuses the same bKash transaction twice', async () => {
@@ -221,6 +226,9 @@ describe('a business, from creation to suspension', () => {
     });
     expect(suspended.json!.data).toMatchObject({ status: 'SUSPENDED', access: 'BLOCKED' });
     expect((await call(ownerToken, 'GET', 'orders')).json?.error?.code).toBe('ORG_SUSPENDED');
+    expect(outbox.some((m) => m.to === ownerEmail && m.subject.endsWith('has been suspended'))).toBe(
+      true,
+    );
 
     const back = await call(rootToken, 'POST', `platform/tenants/${orgId}/reactivate`, {
       reason: 'ZZTEST paid',

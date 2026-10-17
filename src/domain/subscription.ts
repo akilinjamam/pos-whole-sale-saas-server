@@ -44,6 +44,14 @@ function daysUntil(until: Date, now: Date): number {
   return Math.max(0, Math.ceil((until.getTime() - now.getTime()) / DAY_MS));
 }
 
+/**
+ * The date this subscription runs until. A trial runs to its trial end; anything else to the end of
+ * the period paid for — or, for a business marked PAST_DUE straight from a trial, the trial end.
+ */
+export function subscriptionEndsAt(org: SubscriptionDates): Date | null {
+  return org.status === 'TRIAL' ? org.trialEndsAt : (org.currentPeriodEndsAt ?? org.trialEndsAt);
+}
+
 export function subscriptionState(
   org: SubscriptionDates,
   now: Date,
@@ -59,11 +67,7 @@ export function subscriptionState(
     };
   }
 
-  // The date this subscription runs until. A trial runs to its trial end; anything else to the
-  // end of the period paid for — or, for a business marked PAST_DUE straight from a trial, the
-  // trial end.
-  const endsAt =
-    org.status === 'TRIAL' ? org.trialEndsAt : (org.currentPeriodEndsAt ?? org.trialEndsAt);
+  const endsAt = subscriptionEndsAt(org);
 
   if (!endsAt) {
     // Open-ended. PAST_DUE with no date at all is a platform admin's call — treat it as overdue.
@@ -102,6 +106,59 @@ export function subscriptionState(
     dueSince: endsAt,
     graceEndsAt,
     daysLeft: daysUntil(graceEndsAt, now),
+  };
+}
+
+// ─── The daily lifecycle job (SaaS phase 6) ─────────────────────────────────────────────
+
+/** Reminders go out when this many days or fewer are left — the most urgent stage reached. */
+export const REMINDER_DAYS = [7, 3, 1] as const;
+export type ReminderStage = (typeof REMINDER_DAYS)[number];
+
+export type LifecycleNotice =
+  | { kind: 'ENDING'; stage: ReminderStage; daysLeft: number }
+  | { kind: 'EXPIRED'; graceEndsAt: Date }
+  | { kind: 'READ_ONLY' };
+
+export interface LifecycleStep {
+  /** Write PAST_DUE down: the stored status still says TRIAL / ACTIVE after the end date. */
+  markPastDue: boolean;
+  /** The end date the notice is about — part of its key, so a renewal starts the reminders over. */
+  endsAt: Date | null;
+  /** Never paid: a trial, or past due straight from one. Changes the wording, not the rules. */
+  isTrial: boolean;
+  notice: LifecycleNotice | null;
+}
+
+/**
+ * What the daily job should do for one business, now. Pure, so the job itself only carries it out.
+ *
+ * It names the **current** stage, not every stage passed: a job that missed a few days sends the
+ * one reminder that is true today ("1 day left"), not three at once. The job sends each
+ * (business, end date, notice) once, however often it runs.
+ */
+export function lifecycleStep(org: SubscriptionDates, now: Date, graceDays: number): LifecycleStep {
+  const endsAt = subscriptionEndsAt(org);
+  const isTrial =
+    org.status === 'TRIAL' || (org.status === 'PAST_DUE' && !org.currentPeriodEndsAt);
+  const none: LifecycleStep = { markPastDue: false, endsAt, isTrial, notice: null };
+
+  if (org.status === 'SUSPENDED' || org.status === 'CANCELLED' || !endsAt) return none;
+
+  if (endsAt.getTime() > now.getTime() && org.status !== 'PAST_DUE') {
+    const daysLeft = daysUntil(endsAt, now);
+    const stage = [...REMINDER_DAYS].reverse().find((d) => daysLeft <= d);
+    return stage ? { ...none, notice: { kind: 'ENDING', stage, daysLeft } } : none;
+  }
+
+  const graceEndsAt = new Date(endsAt.getTime() + graceDays * DAY_MS);
+  return {
+    ...none,
+    markPastDue: org.status !== 'PAST_DUE',
+    notice:
+      now.getTime() >= graceEndsAt.getTime()
+        ? { kind: 'READ_ONLY' }
+        : { kind: 'EXPIRED', graceEndsAt },
   };
 }
 

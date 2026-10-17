@@ -6,6 +6,8 @@ import { ApiError } from '../../lib/ApiError.js';
 import { escapeRegex } from '../../lib/paginate.js';
 import { nextSequence } from '../../lib/numbering.js';
 import { withTransaction } from '../../lib/withTransaction.js';
+import * as templates from '../../services/emailTemplates.js';
+import { sendMail } from '../../services/mailer.service.js';
 import { provisionOrg } from '../../services/provisioning.service.js';
 import {
   invalidateOrgAccess,
@@ -350,6 +352,23 @@ async function changeOrg(
   return getTenant(id);
 }
 
+/**
+ * Email the business's owner, after the change has committed. Never throws: the change is made, and
+ * a failed email is logged by the mailer.
+ */
+async function emailOwner(
+  orgId: Types.ObjectId,
+  build: (owner: { to: string; name: string; businessName: string }) => Parameters<typeof sendMail>[0],
+): Promise<void> {
+  const org = await Org.findById(orgId).select('name ownerUserId').lean();
+  if (!org?.ownerUserId) return;
+  const owner = await User.findOne({ _id: org.ownerUserId, isActive: true })
+    .select('name email')
+    .lean();
+  if (!owner) return;
+  await sendMail(build({ to: owner.email, name: owner.name, businessName: org.name }));
+}
+
 /** What the status returns to when a suspension or cancellation is lifted: the dates decide. */
 function statusFromDates(org: OrgDoc): OrgStatus {
   if (org.currentPeriodEndsAt) return 'ACTIVE';
@@ -357,14 +376,20 @@ function statusFromDates(org: OrgDoc): OrgStatus {
   return 'ACTIVE';
 }
 
-export function suspendTenant(actor: PlatformActor, id: Types.ObjectId, input: ReasonInput) {
-  return changeOrg(actor, id, 'TENANT_SUSPEND', (org) => {
+export async function suspendTenant(
+  actor: PlatformActor,
+  id: Types.ObjectId,
+  input: ReasonInput,
+) {
+  const result = await changeOrg(actor, id, 'TENANT_SUSPEND', (org) => {
     if (org.status === 'SUSPENDED')
       throw ApiError.conflict('ILLEGAL_TRANSITION', 'Already suspended');
     if (org.status === 'CANCELLED')
       throw ApiError.conflict('ILLEGAL_TRANSITION', 'This business is closed');
     return { set: { status: 'SUSPENDED' }, details: { reason: input.reason } };
   });
+  await emailOwner(id, (owner) => templates.accountSuspended(owner));
+  return result;
 }
 
 export function cancelTenant(actor: PlatformActor, id: Types.ObjectId, input: ReasonInput) {
@@ -526,7 +551,18 @@ export async function recordPayment(
   });
 
   invalidateOrgAccess(id);
-  return getPayment(paymentId);
+  const payment = await getPayment(paymentId);
+  const plan = await planByCode(payment.planCode);
+  await emailOwner(id, (owner) =>
+    templates.paymentReceived({
+      ...owner,
+      receiptNo: payment.receiptNo,
+      amountMinor: payment.amountMinor,
+      planName: plan?.name ?? payment.planCode,
+      periodEnd: new Date(payment.periodEnd),
+    }),
+  );
+  return payment;
 }
 
 export async function getPayment(id: Types.ObjectId): Promise<SubscriptionPaymentPayload> {

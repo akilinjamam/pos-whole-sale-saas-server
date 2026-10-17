@@ -125,6 +125,24 @@ export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
   ).lean();
   if (!user) throw invalidLink();
 
+  // The owner of a self-service signup gets the welcome once their address is confirmed — the
+  // first verification only (a later change of address is verified again, and not welcomed twice).
+  const org = await Org.findById(user.orgId).select('name ownerUserId signupSource trialEndsAt').lean();
+  if (
+    org?.signupSource === 'SIGNUP' &&
+    String(org.ownerUserId) === String(user._id) &&
+    user.emailVerifiedAt?.getTime() === now.getTime()
+  ) {
+    await sendMail(
+      templates.welcome({
+        to: user.email,
+        name: user.name,
+        businessName: org.name,
+        trialEndsAt: org.trialEndsAt ?? null,
+      }),
+    );
+  }
+
   return { email: user.email };
 }
 

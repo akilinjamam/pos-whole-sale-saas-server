@@ -2419,7 +2419,14 @@ export interface DashboardPayload {
 
 // ─── Notifications (Day 39) ─────────────────────────────────────────────────────────────
 
-export type NotificationKind = 'LOW_STOCK' | 'EXPIRED' | 'EXPIRING' | 'OVERDUE' | 'APPROVAL';
+export type NotificationKind =
+  | 'LOW_STOCK'
+  | 'EXPIRED'
+  | 'EXPIRING'
+  | 'OVERDUE'
+  | 'APPROVAL'
+  /** The business's own trial or subscription ending, due or read-only (SaaS phase 6). */
+  | 'SUBSCRIPTION';
 
 /**
  * Something that needs a person's attention now. Computed when asked — never stored — from the

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addMonths,
   hasRoomFor,
+  lifecycleStep,
   paymentPeriod,
   planHasFeature,
   planLimit,
@@ -154,5 +155,60 @@ describe('paymentPeriod', () => {
   it('keeps the unused trial days', () => {
     const p = paymentPeriod({ status: 'TRIAL', trialEndsAt: at(4), currentPeriodEndsAt: null }, now, 3);
     expect(p.start.toISOString()).toBe(at(4).toISOString());
+  });
+});
+
+describe('lifecycleStep (the daily job)', () => {
+  const trial = (days: number) =>
+    ({ status: 'TRIAL', trialEndsAt: at(days), currentPeriodEndsAt: null }) as const;
+
+  it('says nothing while more than 7 days are left', () => {
+    expect(lifecycleStep(trial(8), now, GRACE)).toMatchObject({ markPastDue: false, notice: null });
+  });
+
+  it('names the most urgent reminder stage reached', () => {
+    expect(lifecycleStep(trial(7), now, GRACE).notice).toEqual({ kind: 'ENDING', stage: 7, daysLeft: 7 });
+    expect(lifecycleStep(trial(5), now, GRACE).notice).toMatchObject({ stage: 7 });
+    expect(lifecycleStep(trial(3), now, GRACE).notice).toMatchObject({ stage: 3 });
+    expect(lifecycleStep(trial(2), now, GRACE).notice).toMatchObject({ stage: 3 });
+    // Ends tomorrow — under a day away.
+    expect(lifecycleStep(trial(0.5), now, GRACE).notice).toMatchObject({ stage: 1, daysLeft: 1 });
+  });
+
+  it('marks an ended trial past due and tells them, with the grace end', () => {
+    const step = lifecycleStep(trial(-1), now, GRACE);
+    expect(step).toMatchObject({ markPastDue: true, isTrial: true });
+    expect(step.notice).toEqual({ kind: 'EXPIRED', graceEndsAt: at(GRACE - 1) });
+  });
+
+  it('does not mark again once PAST_DUE is stored, and says read-only after the grace period', () => {
+    const stored = { status: 'PAST_DUE', trialEndsAt: at(-3), currentPeriodEndsAt: null } as const;
+    expect(lifecycleStep(stored, now, GRACE)).toMatchObject({
+      markPastDue: false,
+      notice: { kind: 'EXPIRED' },
+    });
+    const late = { ...stored, trialEndsAt: at(-GRACE) };
+    expect(lifecycleStep(late, now, GRACE).notice).toEqual({ kind: 'READ_ONLY' });
+  });
+
+  it('follows the paid period once they have paid, and words it as a renewal', () => {
+    const paid = { status: 'ACTIVE', trialEndsAt: at(-40), currentPeriodEndsAt: at(3) } as const;
+    const step = lifecycleStep(paid, now, GRACE);
+    expect(step).toMatchObject({ isTrial: false, endsAt: at(3), notice: { stage: 3 } });
+    const lapsed = lifecycleStep({ ...paid, currentPeriodEndsAt: at(-1) }, now, GRACE);
+    expect(lapsed).toMatchObject({ markPastDue: true, isTrial: false });
+  });
+
+  it('leaves alone suspended, closed and open-ended businesses', () => {
+    for (const status of ['SUSPENDED', 'CANCELLED'] as const) {
+      expect(lifecycleStep({ ...trial(-30), status }, now, GRACE)).toMatchObject({
+        markPastDue: false,
+        notice: null,
+      });
+    }
+    expect(
+      lifecycleStep({ status: 'ACTIVE', trialEndsAt: null, currentPeriodEndsAt: null }, now, GRACE)
+        .notice,
+    ).toBeNull();
   });
 });

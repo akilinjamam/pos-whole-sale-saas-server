@@ -26,9 +26,37 @@ npm run seed           # first deploy only: roles, the OWNER account, default pr
 npm run platform:create-admin -- --email you@example.com --name "Your Name"
 npx tsx scripts/index-review.ts --sync   # builds every index, reports any query that would scan
 pm2 start dist/index.js --name pos-wholesale-saas-api
+# The daily subscription job (SaaS phase 6) — see "Daily subscription job" below.
+pm2 start npm --name pos-wholesale-saas-daily --cron-restart "0 3 * * *" --no-autorestart -- run job:subscriptions
 pm2 save
 curl -s https://api.example.com/api/v1/health   # status ok, replicaSet: true
 ```
+
+### Daily subscription job
+
+`npm run job:subscriptions` (`scripts/subscription-daily.ts`) does, for every business:
+
+- writes `PAST_DUE` once a trial or paid period has ended (access already follows the dates — this
+  makes the stored status and the platform lists agree);
+- emails the owner 7, 3 and 1 days before the end, on the day it ends ("payment due", with the
+  read-only date), and when the grace period runs out ("now read-only");
+- on the first run of each week (Monday, Dhaka time), emails every active platform admin a summary.
+
+Each email is recorded in `subscription_notices` **before** it is sent, so running the job twice —
+or by hand while pm2 also runs it — never sends twice. A failed send is released and retried on the
+next run, and the job exits 1, which `pm2 logs pos-wholesale-saas-daily` shows.
+
+`"0 3 * * *"` is 03:00 in the **server's** time zone — 09:00 in Dhaka on a UTC server. Check with
+`date`, and adjust so it runs in the morning in Dhaka. A plain crontab works just as well:
+
+```cron
+0 9 * * * cd /srv/pos-wholesale-saas-server && TZ=Asia/Dhaka npm run job:subscriptions >> /var/log/pos-wholesale-daily.log 2>&1
+```
+
+Try it safely first: `npm run job:subscriptions -- --now 2026-11-01T03:00:00Z` acts as if it were
+that moment — **against the real database, sending real emails**, so only on a test database.
+`SMTP_HOST` must be set (it is required in production anyway), and `APP_PUBLIC_URL` must be the
+real client URL, because every email links to it.
 
 ### `.env` in production
 
@@ -105,6 +133,8 @@ scratch database first (`scripts/restore-drill.sh`), compare, and only then deci
 - `GET /api/v1/health` — 200 with `db.state: connected` and `replicaSet: true`. Point an uptime
   monitor at it.
 - `npx tsx scripts/reconcile-all.ts` nightly from cron after the backup; it exits 1 on any drift.
+- `pm2 logs pos-wholesale-saas-daily` — the subscription job's summary each morning (businesses
+  checked, marked past due, emails sent / failed). `emailsFailed > 0` means SMTP is broken.
 - `pm2 logs pos-wholesale-saas-api` — JSON lines (pino). `LOG_LEVEL=info`.
 - The index review after any release that adds a list screen or a filter.
 

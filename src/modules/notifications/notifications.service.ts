@@ -5,15 +5,61 @@ import { ageingReport } from '../payment/ageing.service.js';
 import { reorderSuggestions } from '../supplierPo/reorder.service.js';
 import { WholesaleOrder } from '../wholesaleOrder/wholesaleOrder.model.js';
 import { formatMoney } from '../../shared/money.js';
+import { orgAccess } from '../../services/subscription.service.js';
+import { REMINDER_DAYS } from '../../domain/subscription.js';
 
 import type { RequestActor } from '../../lib/requestUser.js';
+import type { OrgAccess } from '../../services/subscription.service.js';
 import type { NotificationPayload, NotificationsPayload } from '@shared/types.js';
 
 /**
  * Notifications (Day 39): low stock, lots expired or about to, dealers past their terms, orders
  * waiting for a manager. Each is asked of the function behind its screen, and only of what the
  * caller may see — a store keeper is told about expiry, not about overdue dealers.
+ *
+ * SaaS phase 6 adds the business's own subscription — trial or paid period ending within a week,
+ * payment due, read-only — for those who can choose the plan (`org:update`). Everyone else already
+ * sees the banner.
  */
+
+/** The subscription notice, if there is one worth a bell — null otherwise. */
+export function subscriptionNotification(access: OrgAccess): NotificationPayload | null {
+  const { status, access: level, daysLeft } = access.state;
+  const to = '/settings/subscription';
+  if (level === 'READ_ONLY') {
+    return {
+      kind: 'SUBSCRIPTION',
+      severity: 'critical',
+      title: 'Your account is read-only',
+      detail: 'Payment is overdue. Changes are paused until it is recorded.',
+      count: 1,
+      to,
+    };
+  }
+  if (status === 'PAST_DUE') {
+    return {
+      kind: 'SUBSCRIPTION',
+      severity: 'critical',
+      title: 'Payment is due',
+      detail: `Read-only in ${daysLeft ?? 0} day(s) unless payment is recorded.`,
+      count: 1,
+      to,
+    };
+  }
+  if ((status === 'TRIAL' || status === 'ACTIVE') && daysLeft !== null) {
+    if (daysLeft > Math.max(...REMINDER_DAYS)) return null;
+    const what = status === 'TRIAL' ? 'Free trial' : 'Subscription';
+    return {
+      kind: 'SUBSCRIPTION',
+      severity: daysLeft <= 3 ? 'critical' : 'warning',
+      title: `${what} ends in ${daysLeft} day(s)`,
+      detail: 'Choose a plan and pay to keep working without a break.',
+      count: 1,
+      to,
+    };
+  }
+  return null;
+}
 
 /** Lots expiring within this many days are a warning; already expired, critical. */
 export const EXPIRY_WARNING_DAYS = 30;
@@ -21,7 +67,7 @@ export const EXPIRY_WARNING_DAYS = 30;
 export async function notifications(actor: RequestActor): Promise<NotificationsPayload> {
   const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(actor.user, p);
   const scope = locationScopeOf(actor.user);
-  const [reorder, lots, ageing, approvals] = await Promise.all([
+  const [reorder, lots, ageing, approvals, access] = await Promise.all([
     can('po:read') ? reorderSuggestions(actor, {}) : null,
     can('stock:read') ? expiringLots(actor, { withinDays: EXPIRY_WARNING_DAYS }) : null,
     can('payment:read') ? ageingReport(actor, {}) : null,
@@ -33,9 +79,12 @@ export async function notifications(actor: RequestActor): Promise<NotificationsP
           ...(scope ? { locationId: { $in: scope } } : {}),
         })
       : null,
+    can('org:update') ? orgAccess(actor.orgId) : null,
   ]);
 
   const items: NotificationPayload[] = [];
+  const subscription = access ? subscriptionNotification(access) : null;
+  if (subscription) items.push(subscription);
   if (lots) {
     const expired = lots.filter((l) => (l.daysToExpiry ?? 0) < 0);
     const soon = lots.filter((l) => (l.daysToExpiry ?? 0) >= 0);
