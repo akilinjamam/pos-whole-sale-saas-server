@@ -64,8 +64,7 @@ export async function listUsers(
   if (query.roleId) filter.roleIds = new Types.ObjectId(query.roleId);
   if (query.locationId) filter.locationIds = new Types.ObjectId(query.locationId);
   if (query.isActive !== undefined) filter.isActive = query.isActive;
-  const countUser = await User.find({}).countDocuments();
-  console.log(countUser);
+
   const { items, meta } = await paginate<UserDoc>(User, {
     filter,
     query,
