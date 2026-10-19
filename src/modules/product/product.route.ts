@@ -11,6 +11,7 @@ import {
   listProductsQuerySchema,
   updateProductSchema,
 } from './product.schema.js';
+import { attachAutoBarcode } from '../../middleware/barcode.js';
 
 const productRouter = Router();
 
@@ -27,6 +28,7 @@ productRouter.post(
   authenticate,
   requirePermission('product:create'),
   validate({ body: createProductSchema }),
+  attachAutoBarcode,
   ctrl.create,
 );
 

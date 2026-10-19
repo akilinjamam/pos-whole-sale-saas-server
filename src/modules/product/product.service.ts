@@ -22,6 +22,7 @@ import type { ProductAttrs } from '@shared/catalog.js';
 import type { ProductType } from '@shared/enums.js';
 import type { PageMeta, ProductPayload } from '@shared/types.js';
 import type { FilterQuery } from 'mongoose';
+import { User } from '../user/user.model.js';
 
 const SORTABLE = ['sku', 'name', 'type', 'defaultSellPriceMinor', 'createdAt'] as const;
 const SEARCHABLE = ['name', 'sku', 'barcode', 'description'] as const;
@@ -447,4 +448,48 @@ export async function deactivateProduct(
   if (!product) throw ApiError.notFound('Product');
 
   return getProduct(orgId, id, includeCost);
+}
+
+export async function generateBarcodeForOrg(orgId: string, userId: string): Promise<string> {
+  // 1. Get all users under this organization sorted by creation date (ascending)
+  const orgUsers = await User.find({ orgId }).sort({ createdAt: 1 }).select('_id');
+
+  // Find the 1-based index of the current user who is creating the product
+  const userIndex = orgUsers.findIndex((user) => user._id.toString() === userId.toString());
+
+  if (userIndex === -1) {
+    throw new Error('User not found in organization context');
+  }
+
+  // Format User Serial to 3 digits (e.g., user index 0 -> "001")
+  const userSerial = String(userIndex + 1).padStart(3, '0');
+
+  // 2. Get current Year and Month (YYMM -> 4 digits)
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yymm = `${yy}${mm}`;
+
+  // 3. Get the latest product sequence for this organization
+  const lastProduct = await Product.findOne({ orgId }).sort({ createdAt: -1 });
+
+  let nextSequenceNumber = 1;
+  if (lastProduct && lastProduct.barcode) {
+    // Barcode structure: YYMM (4) + UserSerial (3) + Sequence (6) = 13 chars
+    // Extract the last 6 digits representing the sequence
+    const lastSequenceStr = lastProduct.barcode.slice(-6);
+    const parsedSeq = parseInt(lastSequenceStr, 10);
+
+    if (!isNaN(parsedSeq)) {
+      nextSequenceNumber = parsedSeq + 1;
+    }
+  }
+
+  // Format Sequence to 6 digits (e.g., 1 becomes "000001")
+  const sequence = String(nextSequenceNumber).padStart(6, '0');
+
+  // 4. Assemble the final 13-digit numeric barcode
+  const barcode = `${yymm}${userSerial}${sequence}`;
+
+  return barcode;
 }

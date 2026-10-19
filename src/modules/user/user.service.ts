@@ -64,7 +64,8 @@ export async function listUsers(
   if (query.roleId) filter.roleIds = new Types.ObjectId(query.roleId);
   if (query.locationId) filter.locationIds = new Types.ObjectId(query.locationId);
   if (query.isActive !== undefined) filter.isActive = query.isActive;
-
+  const countUser = await User.find({}).countDocuments();
+  console.log(countUser);
   const { items, meta } = await paginate<UserDoc>(User, {
     filter,
     query,
@@ -100,7 +101,10 @@ export async function getUser(orgId: Types.ObjectId, id: Types.ObjectId): Promis
  * with someone else's address could go on to create accounts in their name. An actor with no user
  * document (a script, a test) is not held to it.
  */
-async function assertActorVerified(orgId: Types.ObjectId, actorId: Types.ObjectId): Promise<void> {
+async function assertActorVerified(
+  orgId: Types.ObjectId,
+  actorId: Types.ObjectId,
+): Promise<void> {
   const actor = await User.findOne({ _id: actorId, orgId }).select('emailVerifiedAt').lean();
   if (actor && !actor.emailVerifiedAt) {
     throw new ApiError(
