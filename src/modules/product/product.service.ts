@@ -19,7 +19,7 @@ import type {
 } from './product.schema.js';
 import type { ProductDoc } from './product.model.js';
 import type { ProductAttrs } from '@shared/catalog.js';
-import type { ProductType } from '@shared/enums.js';
+import { type ProductType } from '@shared/enums.js';
 import type { PageMeta, ProductPayload } from '@shared/types.js';
 import type { FilterQuery } from 'mongoose';
 import { User } from '../user/user.model.js';
@@ -450,7 +450,23 @@ export async function deactivateProduct(
   return getProduct(orgId, id, includeCost);
 }
 
-export async function generateBarcodeForOrg(orgId: string, userId: string): Promise<string> {
+function matchType(type: ProductType): string {
+  const matchProductType: Record<ProductType, string> = {
+    FRAME: 'FRM',
+    SUNGLASS: 'SUN',
+    LENS: 'LNS',
+    ACCESSORY: 'ACR',
+    MACHINE: 'MCN',
+  };
+
+  return matchProductType[type] ?? '';
+}
+
+export async function generateBarcodeForOrg(
+  orgId: string,
+  userId: string,
+  type: string,
+): Promise<{ barcode: string; skuCode: string }> {
   // 1. Get all users under this organization sorted by creation date (ascending)
   const orgUsers = await User.find({ orgId }).sort({ createdAt: 1 }).select('_id');
 
@@ -471,7 +487,11 @@ export async function generateBarcodeForOrg(orgId: string, userId: string): Prom
   const yymm = `${yy}${mm}`;
 
   // 3. Get the latest product sequence for this organization
-  const lastProduct = await Product.findOne({ orgId }).sort({ createdAt: -1 });
+  const lastProduct = await Product.findOne({ orgId })
+    .sort({ createdAt: -1 })
+    .select('barcode');
+
+  const generatedSkuCode = matchType(type as ProductType);
 
   let nextSequenceNumber = 1;
   if (lastProduct && lastProduct.barcode) {
@@ -490,6 +510,10 @@ export async function generateBarcodeForOrg(orgId: string, userId: string): Prom
 
   // 4. Assemble the final 13-digit numeric barcode
   const barcode = `${yymm}${userSerial}${sequence}`;
+  const skuCode = `${generatedSkuCode}-${yymm}${userSerial}${sequence}`;
 
-  return barcode;
+  return {
+    barcode,
+    skuCode,
+  };
 }

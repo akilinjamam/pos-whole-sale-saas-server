@@ -35,13 +35,10 @@ const packSchema = z
  * stock valuation.
  */
 const productBase = z.object({
-  sku: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .min(1, 'Required')
-    .max(40)
-    .regex(/^[A-Z0-9][A-Z0-9._-]*$/, 'Letters, digits, dot, dash and underscore'),
+  sku: z.string().trim().toUpperCase(),
+  // .min(1)
+  // .max(40)
+  // .regex(/^[A-Z0-9][A-Z0-9._-]*$/, 'Letters, digits, dot, dash and underscore'),
   name: z.string().trim().min(1, 'Required').max(160),
   type: z.enum(PRODUCT_TYPES),
   brandId: objectId.nullable().optional(),
