@@ -23,20 +23,33 @@ jobs:
           source: "."
           target: "/www/pos-whole-sale-saas-server"
 
-      - name: Build and Deploy via Docker Compose SSH
+      - name: Build and Restart Application
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          port: 22
           script: |
             cd /www/pos-whole-sale-saas-server
 
-            echo "Pulling/rebuilding containers..."
-            docker compose down
-            docker compose up --build -d
-            
-            # Clean up old unused images
-            docker image prune -f
+            echo "Installing dependencies..."
+            npm install
+
+            echo "Building application..."
+            npm run build
+
+            echo "Removing development dependencies..."
+            npm prune --omit=dev
+
+            echo "Restarting application..."
+
+            if pm2 describe pos-whole-sale-server > /dev/null 2>&1; then
+              pm2 restart pos-whole-sale-server
+            else
+              pm2 start npm --name "pos-whole-sale-server" -- start
+            fi
+
+            pm2 save
 
             echo "Deployment completed successfully!"

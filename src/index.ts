@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   await connectDatabase();
 
   const app = createApp();
-  server = app.listen(config.port, () => {
+  server = app.listen(config.port, '0.0.0.0', () => {
     logger.info(
       { port: config.port, env: config.env },
       `API listening on http://localhost:${config.port}/api/v1`,
